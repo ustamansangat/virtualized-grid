@@ -11,7 +11,7 @@ person-list {
   border: 2px solid red;
   display: block;
   width: 60%;
-  height: 300px;
+  height: 110px;
   overflow: auto;
 }
 $tile-height: 50px;
@@ -47,7 +47,6 @@ person {
       width: 100%;
       text-align: center;
       position: relative;
-      line-height: $tile-height;
     }
   }
   &.loading {
