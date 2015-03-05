@@ -14,17 +14,50 @@ person-list {
   height: 300px;
   overflow: auto;
 }
+$tile-height: 50px;
+
 person {
   display: block;
-  border: 1px solid lightgreen;
+  border: 1px solid green;
   padding: 10px;
-  margin: 5px;
+  box-sizing: border-box;
+  height: $tile-height;
+  margin: 0;
   address {
     display: none;
   }
   &[expanded] {
+    height: 2.5 * $tile-height;
     address {
+      padding: 35px;;
       display: block;
     }
   }
+
+  @mixin loading {
+    > * {
+     visibility: hidden;
+    }
+    border-color: blue;
+    background-color: lightblue;
+    &::after {
+      content: 'loading ' attr(data-index);
+      display: block;
+      height: 0;
+      width: 100%;
+      text-align: center;
+      position: relative;
+      line-height: $tile-height;
+    }
+  }
+  &.loading {
+    @include loading;
+  }
+  &.first, &.last {
+    background-color: yellow;
+  }
+}
+
+prefix, suffix {
+  background-color: red;
 }
