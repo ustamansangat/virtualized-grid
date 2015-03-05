@@ -3,8 +3,11 @@
 // generated on 2015-03-05 using generator-gulp-webapp 0.3.0
 var gulp = require('gulp');
 var $ = require('gulp-load-plugins')();
+var gulpTaskListing = require('gulp-task-listing');
 var browserSync = require('browser-sync');
 var reload = browserSync.reload;
+
+gulp.task('help', gulpTaskListing);
 
 gulp.task('styles', function () {
   return gulp.src('app/styles/main.scss')
