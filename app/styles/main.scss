@@ -7,34 +7,24 @@ body {
   color: #333;
 }
 
-person-list {
+people {
   border: 2px solid red;
   display: block;
   width: 60%;
-  height: 610px;
-  overflow: auto;
+  height: 155px;
+  overflow-y: auto;
 }
+
 $tile-height: 50px;
 
-person {
+.item-row {
   display: block;
   border: 1px solid green;
   padding: 10px;
   box-sizing: border-box;
   height: $tile-height;
-  margin: 0;
-  address {
-    display: none;
-  }
-  &[expanded] {
-    height: 2.5 * $tile-height;
-    address {
-      padding: 35px;;
-      display: block;
-    }
-  }
 
-  @mixin loading {
+  &.loading {
     > * {
      visibility: hidden;
     }
@@ -49,11 +39,20 @@ person {
       position: relative;
     }
   }
-  &.loading {
-    @include loading;
+
+  address {
+    display: none;
   }
-  &.first, &.last {
-    background-color: yellow;
+  &[expanded] {
+    height: 2.5 * $tile-height;
+    address {
+      padding: 35px;;
+      display: block;
+    }
+  }
+
+  &.item-row-first, &.item-row-last {
+    background-color: red;
   }
 }
 
