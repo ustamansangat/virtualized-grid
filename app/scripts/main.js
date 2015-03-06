@@ -25,7 +25,7 @@ var Container = Backbone.View.extend({
       this.cfg = {
         VIEWPORT_HEIGHT: parseInt(this.$el.css('height'), 10),
         ROW_HEIGHT: options.ROW_HEIGHT || 50,
-        RENDER_DELAY: options.RENDER_DELAY || 1000,
+        RENDER_DELAY: options.RENDER_DELAY || 500,
         MAX_CACHE_COUNT: options.MAX_CACHE_COUNT || Infinity,
         WING_RATIO: options.WING_RATIO || 1
       };
@@ -36,12 +36,7 @@ var Container = Backbone.View.extend({
         throw new Error('We should cache many fold more than the WINDOW + TWICE the WINGs');
       }
       this._contentPromises = {};
-      var renderPlaceholders = this.render.bind(this, true);
-      var renderActualRows = _.debounce(this.render.bind(this, false), this.cfg.RENDER_DELAY);
-      this.render = function () {
-        renderPlaceholders();
-        renderActualRows();
-      }.bind(this);
+      this.render = _.debounce(this.render.bind(this), this.cfg.RENDER_DELAY);
   },
   tileTemplate: _.template('<person data-index="<%- index %>" class="loading"></person>'),
   tileContentTemplate: _.template('<%- name %> (<%- age %>) <address><%- address %></address>'),
@@ -64,7 +59,8 @@ var Container = Backbone.View.extend({
         var i;
 
         var leftDeletions = 0;
-        for (i = 0; i < index - this.cfg.MAX_CACHE_COUNT/2 && leftDeletions < this.cfg.WING_COUNT; ++i) {
+        var MAX_DELETIONS = _.min([this.cfg.WING_COUNT, this.cfg.WINDOW_COUNT]);
+        for (i = 0; i < index - this.cfg.MAX_CACHE_COUNT/2 && leftDeletions < MAX_DELETIONS; ++i) {
             if (_.has(this._contentPromises, i)) {
               delete this._contentPromises[i];
               ++ leftDeletions;
@@ -72,7 +68,7 @@ var Container = Backbone.View.extend({
         }
 
         var rightDeletions = 0;
-        for (i = this.model.get('count') - 1; i > index + this.cfg.MAX_CACHE_COUNT/2 && rightDeletions < this.cfg.WING_COUNT; --i) {
+        for (i = this.model.get('count') - 1; i > index + this.cfg.MAX_CACHE_COUNT/2 && rightDeletions < MAX_DELETIONS; --i) {
             if (_.has(this._contentPromises, i)) {
               delete this._contentPromises[i];
               ++ rightDeletions;
@@ -83,56 +79,63 @@ var Container = Backbone.View.extend({
     }
     return promise;
   },
-  render : function(isScrolling) {
-    var from = Math.floor(this.$el.scrollTop() / this.cfg.ROW_HEIGHT);
+  render : function() {
+    var from = _.max([0 , Math.floor(this.$el.scrollTop() / this.cfg.ROW_HEIGHT)]);
     var till = _.min([from + this.cfg.WINDOW_COUNT, this.model.get('count')]);
-    this.$el.html(_.string.sprintf('<prefix style="display: block; height: %dpx;"> </prefix>', from * this.cfg.ROW_HEIGHT));
-    if(!isScrolling) {
-      _.range(_.max([0, from - this.cfg.WING_COUNT]), from).forEach(function (i) {
-        this.getContent(i);
-      }.bind(this));
-      _.range(till, _.min([till + this.cfg.WING_COUNT, this.model.get('count')])).forEach(function (i) {
-        this.getContent(i);
-      }.bind(this));
+    var self = this;
+
+    function findTileByIndex(index) {
+      return self.$(_.string.sprintf('person[data-index=%d]', index));
     }
-    var placeholders = [];
-    var actuals = [];
-    _.range(from, till).forEach(function (i){
-      var $tile = $(this.tileTemplate({index: i})).appendTo(this.$el);
+
+    if (findTileByIndex(from).size() && findTileByIndex(till).size()) {
+      console.log('Already rendered')
+      return;
+    }
+
+    console.log('Visible range', from, '-', till);
+    from = _.max([0 , from - this.cfg.WING_COUNT]);
+    till = _.min([till + this.cfg.WING_COUNT, this.model.get('count')]);
+    console.log('Rendering', from, '-', till);
+
+    var range = _.range(from, till);
+
+    this.$el.html(_.string.sprintf('<prefix style="display: block; height: %dpx;"> </prefix>', from * this.cfg.ROW_HEIGHT));
+
+    var loading = []; //for logging
+
+    range.forEach(function (i){
+      var $tile = $(self.tileTemplate({index: i})).appendTo(self.$el);
       if (i == 0) {
         $tile.addClass('first');
       }
-      if (i == this.model.get('count') - 1) {
+      if (i == self.model.get('count') - 1) {
         $tile.addClass('last');
       }
-      var resolved = this._contentPromises[i] && this._contentPromises[i].state() === 'resolved';
-      if (!isScrolling || resolved) {
-        actuals.push(this.getContent(i).then(function (content){
-          this.$(_.string.sprintf('person[data-index=%d]', i)).html(this.tileContentTemplate(content)).removeClass('loading');
-          return i;
-        }.bind(this)));
-      } else {
-        placeholders.push(i);
+      var contentPromise = self.getContent(i);
+      if (contentPromise.state() !== 'resolved') {
+        loading.push(i);
       }
-    }.bind(this));
-    if (actuals.length) {
-      $.when.apply($, actuals).then(function (){
-        console.debug('Rendering actual rows:', arguments);
+      contentPromise.then(function (content){
+        findTileByIndex(i).html(self.tileContentTemplate(content)).removeClass('loading');
       });
+    });
+
+    if (loading.length) {
+      console.debug('Loading', loading.length, 'rows');
     }
-    if (placeholders.length) {
-      console.debug('Rendering placeholder rows:', placeholders);
-    }
+
     this.$el.append(_.string.sprintf('<suffix style="display: block; height: %dpx;"> </suffix>',
       (this.model.get('count') - till) * this.cfg.ROW_HEIGHT));
   }
 });
 
 var container = new Container({
-  MAX_CACHE_COUNT: 64,
+  MAX_CACHE_COUNT: 128,
+  WING_RATIO: 4,
   el: $('person-list'),
   model: new Backbone.Model({
-    count: 150000
+    count: 1000
   })
 });
 
