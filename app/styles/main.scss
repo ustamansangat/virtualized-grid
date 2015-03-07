@@ -11,7 +11,7 @@ people {
   border: 2px solid red;
   display: block;
   width: 60%;
-  height: 155px;
+  height: 535px;
   overflow-y: auto;
 }
 
@@ -52,10 +52,10 @@ $tile-height: 50px;
   }
 
   &.item-row-first, &.item-row-last {
-    background-color: red;
+    background-color: yellow;
   }
 }
 
 prefix, suffix {
-  background-color: red;
+  background-color: #7e7e7e;
 }
