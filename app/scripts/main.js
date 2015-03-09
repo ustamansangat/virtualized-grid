@@ -3,21 +3,31 @@
 var PeopleView = Backbone.View.extend({
 
   events: {
-  'click .item-row:not(.loading)' : function (event){
+    'click .item-row:not(.loading)' : function (event){
       var $row = $(event.target).closest('.item-row');
-      var index = $row.data('index');
+      var id = $row.data('id');
       var expanded = $row.attr('expanded');
       if(expanded !== undefined) {
         $row.removeAttr('expanded');
-        delete this._expandedRows[index];
+        delete this._expandedRows[id];
       } else {
         $row.attr('expanded', '');
-        this._expandedRows[index] = true;
+        this._expandedRows[id] = true;
       }
     }
   },
 
-  rowTemplate: _.template('<div><%- name %> <address><%- address %></address></div>'),
+  idProperty: 'id',
+
+  template: _.template('<div <%= expanded ? "expanded" : ""%> data-id="<%- rowId %>"><%- row.name %> <address><%- row.address %></address></div>'),
+
+  rowTemplate: function (row) {
+    return this.template({
+      expanded: this._expandedRows[row[this.idProperty]],
+      rowId: row[this.idProperty],
+      row: row
+    });
+  },
 
   getContent: function (index) {
     var future = $.Deferred();
@@ -30,25 +40,27 @@ var PeopleView = Backbone.View.extend({
     return future.promise();
   },
 
-  isIrregularRow: function (index){
-    return index === 0 || this._expandedRows[index];
+  isIrregularRow: function (row){
+    return this._expandedRows[row[this.idProperty]];
   },
 
   initialize: function (options) {
     Backbone.View.prototype.initialize.apply(this, arguments);
     mixinVirtualizedContainerTrait(this, options);
     this._expandedRows = {};
+    this.idProperty = options.idProperty || this.idProperty;
   }
 
 });
 
 var container = new PeopleView({
   el: $('people'),
+  idProperty: 'name',
   model: new Backbone.Model({
-    count: 200000
+    count: 13
   }),
-  MAX_CACHE_COUNT: 40,
-  WING_COUNT: 2
+  MAX_CACHE_COUNT: 14,
+  WING_COUNT: 0
 });
 
 container.render();

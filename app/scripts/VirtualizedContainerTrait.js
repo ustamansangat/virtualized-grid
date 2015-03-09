@@ -54,12 +54,14 @@ function mixinVirtualizedContainerTrait (self, options) {
     if ($row.css('box-sizing') !== 'border-box') {
       throw new Error('Only border-box supported.');
     }
-    if(!self.isIrregularRow($row.data('index'))) {
-      var actualHeight = parseInt($row.css('height'), 10);
-      if (actualHeight !== cfg.ROW_HEIGHT) {
-        throw new Error(_.string.sprintf('Height for row#%d is expected to be %d but found %d.', cfg.ROW_HEIGHT, actualHeight));
+    getCachedContent($row.data('index')).then(function (row) {
+      if (!self.isIrregularRow(row)) {
+        var actualHeight = parseInt($row.css('height'), 10);
+        if (actualHeight !== cfg.ROW_HEIGHT) {
+          throw new Error(_.string.sprintf('Height for %s is expected to be %d but found %d.', JSON.stringify(row), cfg.ROW_HEIGHT, actualHeight));
+        }
       }
-    }
+    });
   }
 
   function renderRow(i) {
@@ -77,25 +79,28 @@ function mixinVirtualizedContainerTrait (self, options) {
 
   function setupDimensions () {
     self.$el.empty();
-    for (var i = 0; i < self.model.attributes.count; ++i) {
-      if (!self.isIrregularRow(i)) break;
+
+    function helper(i){
+      return i >= self.model.attributes.count ? $.Deferred().reject() : getCachedContent(i).then(function (row) {
+        return self.isIrregularRow(row) ? helper(i + 1) : renderRow(i).then(function ($row) {
+          $row.appendTo(self.$el);
+          cfg.ROW_HEIGHT = parseInt($row.css('height'), 10);
+          cfg.WINDOW_COUNT = Math.floor(cfg.VIEWPORT_HEIGHT / cfg.ROW_HEIGHT) + 2; //2 partially visible rows on each end
+          console.log(cfg);
+          if (cfg.MAX_CACHE_COUNT < cfg.WINDOW_COUNT + 2 * cfg.WING_COUNT) {
+            throw new Error(_.string.sprintf('We should cache more than the WINDOW + TWICE the WING (%d + 2 * %d)',
+              cfg.WINDOW_COUNT, cfg.WING_COUNT));
+          }
+          self.$el.empty();
+        });
+      });
     }
-    return renderRow(i).then(function ($row) {
-      $row.appendTo(self.$el);
-      cfg.ROW_HEIGHT = parseInt($row.css('height'), 10);
-      cfg.WINDOW_COUNT = Math.floor(cfg.VIEWPORT_HEIGHT / cfg.ROW_HEIGHT) + 2; //2 partially visible rows on each end
-      console.log(cfg);
-      if (cfg.MAX_CACHE_COUNT < cfg.WINDOW_COUNT + 2 * cfg.WING_COUNT) {
-        throw new Error(_.string.sprintf('We should cache more than the WINDOW + TWICE the WING (%d + 2 * %d)',
-          cfg.WINDOW_COUNT, cfg.WING_COUNT));
-      }
-      self.$el.empty();
-    });
+    return helper(0);
   }
 
   function render() {
     console.log('SCROLLING ' , arguments);
-    cfg.ROW_HEIGHT === LAZY ? setupDimensions().then(renderHelper) : renderHelper();
+    cfg.ROW_HEIGHT === LAZY ? setupDimensions().always(renderHelper) : renderHelper();
     return self;
   }
 
@@ -141,7 +146,7 @@ function mixinVirtualizedContainerTrait (self, options) {
       Array.prototype.slice.call(arguments).forEach(function($row){
         validateDimensions($row);
       });
-      console.log("Rendered", from, till - 1);
+      console.log("Rendered", from, "to", till - 1);
       //self.$el.scrollTop(scrollTop);
       purgeCache(from, till);
     });
