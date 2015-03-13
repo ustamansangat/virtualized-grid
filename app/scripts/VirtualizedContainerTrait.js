@@ -1,16 +1,20 @@
 /* jshint devel:true */
 /* @const */
-var LAZY = _.uniqueId("LAZY");
+var LAZY = _.uniqueId('LAZY');
+var FORWARD = +1;
+var REVERSE = -1;
 
 mixinVirtualizedContainerTrait.LAZY = LAZY;
 
 function mixinVirtualizedContainerTrait (self, options) {
-
+  mixinContentCachingTrait(self, options);
   self.events = self.events || {};
   if (self.events.scroll) {
     throw new Error("Scroll event handler Note expected");
   }
-  self.events.scroll = 'render';
+  self.events.scroll = function (event) {
+    self.render();//since this is de-bounced, we want to suppress passing arguments to it
+  };
 
   if (!_.isFunction(self.getContent)) {
     throw new Error('Method getContent() is not implemented');
@@ -22,21 +26,18 @@ function mixinVirtualizedContainerTrait (self, options) {
   /*
     Expect RENDER_DELAY, MAX_CACHE_COUNT and WING_COUNT to be specified
   */
-  var cfg = {
-    RENDER_DELAY: options.RENDER_DELAY || 100,
-    MAX_CACHE_COUNT: options.MAX_CACHE_COUNT || Infinity,
-    WING_COUNT: options.WING_COUNT || 0,
-    VIEWPORT_HEIGHT: parseInt(self.$el.css('height'), 10),
-    ROW_HEIGHT: LAZY,
-    WINDOW_COUNT: LAZY
-  };
+  var ROW_HEIGHT = LAZY;
 
   var contentPromises = {};
 
   if (self.render !== Backbone.View.prototype.render) {
     throw new Error("No render implementation expected to be provided");
   }
-  self.render = _.debounce(render, cfg.RENDER_DELAY);
+  self.render = _.debounce(function () {
+                  //try to find the height of a "regular" row the FIRST time we render one
+                   ROW_HEIGHT === LAZY ? setupDimensions().always(render) : render();
+                   return self;
+                 }, options.RENDER_DELAY || 100);
 
   self.isIrregularRow = self.isIrregularRow || _.constant(false);
 
@@ -54,18 +55,19 @@ function mixinVirtualizedContainerTrait (self, options) {
     if ($row.css('box-sizing') !== 'border-box') {
       throw new Error('Only border-box supported.');
     }
-    getCachedContent($row.data('index')).then(function (row) {
+    self.getContent($row.data('index')).then(function (row) {
       if (!self.isIrregularRow(row)) {
         var actualHeight = parseInt($row.css('height'), 10);
-        if (actualHeight !== cfg.ROW_HEIGHT) {
-          throw new Error(_.string.sprintf('Height for %s is expected to be %d but found %d.', JSON.stringify(row), cfg.ROW_HEIGHT, actualHeight));
+        if (actualHeight !== ROW_HEIGHT) {
+          throw new Error(_.string.sprintf('Height for %s is expected to be %d but found %d.', JSON.stringify(row), ROW_HEIGHT, actualHeight));
         }
       }
     });
   }
 
-  function renderRow(i) {
-    return getCachedContent(i).then(function (content) {
+  /** draws the ith row and attaches index and css classes */
+  function prepareRow(i) {
+    return self.getContent(i).then(function (content) {
       var $row = $(self.rowTemplate(content)).addClass('item-row').attr('data-index', i);
       if (i === 0) {
         $row.addClass('item-row-first');
@@ -81,16 +83,10 @@ function mixinVirtualizedContainerTrait (self, options) {
     self.$el.empty();
 
     function helper(i){
-      return i >= self.model.attributes.count ? $.Deferred().reject() : getCachedContent(i).then(function (row) {
-        return self.isIrregularRow(row) ? helper(i + 1) : renderRow(i).then(function ($row) {
+      return i >= self.model.attributes.count ? $.Deferred().reject() : self.getContent(i).then(function (row) {
+        return self.isIrregularRow(row) ? helper(i + 1) : prepareRow(i).then(function ($row) {
           $row.appendTo(self.$el);
-          cfg.ROW_HEIGHT = parseInt($row.css('height'), 10);
-          cfg.WINDOW_COUNT = Math.floor(cfg.VIEWPORT_HEIGHT / cfg.ROW_HEIGHT) + 2; //2 partially visible rows on each end
-          console.log(cfg);
-          if (cfg.MAX_CACHE_COUNT < cfg.WINDOW_COUNT + 2 * cfg.WING_COUNT) {
-            throw new Error(_.string.sprintf('We should cache more than the WINDOW + TWICE the WING (%d + 2 * %d)',
-              cfg.WINDOW_COUNT, cfg.WING_COUNT));
-          }
+          ROW_HEIGHT = parseInt($row.css('height'), 10);
           self.$el.empty();
         });
       });
@@ -98,94 +94,116 @@ function mixinVirtualizedContainerTrait (self, options) {
     return helper(0);
   }
 
-  function render() {
-    console.log('SCROLLING ' , arguments);
-    cfg.ROW_HEIGHT === LAZY ? setupDimensions().always(renderHelper) : renderHelper();
-    return self;
+  function getHeight($el) {
+    return parseInt($el.css ? $el.css('height') : $.css($el, 'height'), 10);
   }
 
-  function renderHelper () {
-    if (self.fetching) {
-      return;
-    }
+  function render () {
     /* @const */
     var scrollTop = self.$el.scrollTop();
-    /* @const */
-    //inclusive
-    var visibleFrom = cfg.ROW_HEIGHT === LAZY ? 0 : _.max([0 , Math.floor(scrollTop / cfg.ROW_HEIGHT)]);
-    /* @const */
-    //exclusive
-    var visibleTill = cfg.WINDOW_COUNT === LAZY ? this.model.attributes.count : _.min([visibleFrom + cfg.WINDOW_COUNT, self.model.attributes.count]);
+    var deltaScroll = 0;
+    var direction = null;
+    var from;
 
-    if (visibleFrom === visibleTill) {
-      console.log('Nothing is visible');
+    (function () {
+      var $rows = self.$('.item-row');
+      if ($rows.size() === 0) {
+        from = 0;
+        direction = FORWARD;
+        return;
+      }
+      var cumulativeHeights = $rows.map(function (_, r){
+        return getHeight(r);
+      }).toArray().reduce(function (acc, h, i) {
+        acc.push(i === 0 ? h : h + acc[i - 1]);
+        return acc;
+      }, []);
+      var topMark = getHeight(self.$('prefix'));
+      var marks = cumulativeHeights.map(function (ah) {
+        return ah + topMark;
+      });
+      var targetMarks = cumulativeHeights.map(function (ah) {
+        return ah + scrollTop;
+      });
+      var index;
+      if (scrollTop > _.last(marks) || _.last(targetMarks) < topMark) {
+        from = ROW_HEIGHT === LAZY ? 0 : _.max([0 , Math.floor(scrollTop / ROW_HEIGHT)]);
+        direction = FORWARD;
+      } else {
+        if (scrollTop < topMark) {
+           //Scrolled Up / Swiped Down / See Previous
+          index = _.findIndex(marks, function (m) {
+            return m >= _.last(targetMarks);
+          }) - 1;
+          deltaScroll = _.last(targetMarks) - marks[index];
+          direction = REVERSE;
+        } else {
+          //Scrolled Down / Swiped up / See Next
+          index = _.findIndex(marks, function (m) {
+            return m >= scrollTop;
+          });
+          deltaScroll = scrollTop - (marks[index - 1] || topMark);
+          direction = FORWARD;
+        }
+        from = $.data($rows.get(index), 'index');
+      }
+      if (self.$('.item-row:first').data('index') === from && direction === FORWARD) {
+        direction = null;
+      }
+      if (self.$('.item-row:last').data('index') === from && direction === REVERSE) {
+        direction = null;
+      }
+    }());
+
+    if(!direction) {
+      console.log("Already rendered ", from);
       return;
     }
-    if (findRowByIndex(visibleFrom).size() && findRowByIndex(visibleTill - 1).size()) {
-      //Already rendered
-      console.debug('Visible rows', visibleFrom, '-', visibleTill - 1,'are already in view');
-      return;
-    }
 
-    var from = _.max([0 , visibleFrom - cfg.WING_COUNT]);
-    var till = _.min([visibleTill + cfg.WING_COUNT, self.model.attributes.count]);
-    var range = _.range(from, till);
-
-    $.when.apply($, range.map(renderRow)).then(function () {
-      self.$el.empty();
-      if (cfg.ROW_HEIGHT !== LAZY) {
-        self.$el.html(_.string.sprintf('<prefix style="display: block; height: %dpx;"> </prefix>', from * cfg.ROW_HEIGHT));
-      }
-      Array.prototype.slice.call(arguments).forEach(function($row){
-        self.$el.append($row);
-      });
-      if (cfg.ROW_HEIGHT !== LAZY) {
-        self.$el.append(_.string.sprintf('<suffix style="display: block; height: %dpx;"> </suffix>',
-          (self.model.attributes.count - till) * cfg.ROW_HEIGHT));
-      }
-      Array.prototype.slice.call(arguments).forEach(function($row){
-        validateDimensions($row);
-      });
-      console.log("Rendered", from, "to", till - 1);
-      //self.$el.scrollTop(scrollTop);
-      purgeCache(from, till);
-    });
-  }
-
-  function getCachedContent(index) {
-    var promise = contentPromises[index];
-    if (!promise) {
-      promise = contentPromises[index] = self.getContent(index);
-    }
-    return promise;
-  }
-
-  function purgeCache(from, till) {
-    var population = _.size(contentPromises);
-    if (population > cfg.MAX_CACHE_COUNT) {
-      var i;
-
-      var purgedOnes = []; //for debugging
-      var leftDeletions = 0;
-      for (i = 0; i < from; ++i) {
-        if (_.has(contentPromises, i)) {
-          delete contentPromises[i];
-          purgedOnes.push(i);
+    self.$el.empty();
+    function stacker(heightToCover, index) {
+      if ((heightToCover > 0 || ROW_HEIGHT === LAZY) && index < self.model.attributes.count && index >= 0) {
+        prepareRow(index).then(function ($row){
+          switch(direction){
+            case FORWARD:
+              self.$el.append($row);
+              break;
+            case REVERSE:
+              self.$el.prepend($row);
+              break;
+          }
+          validateDimensions($row);
+          stacker(heightToCover - getHeight($row), index + direction);
+        });
+      } else {
+        console.log("Rendered", from, "to", index - direction);
+        self.markVisible(from, index); // TODO this should be guessed by the Collection itself instead
+        if (ROW_HEIGHT !== LAZY) {
+          switch(direction){
+            case FORWARD:
+              self.$el.append(_.string.sprintf('<suffix style="display: block; height: %dpx;"> </suffix>',
+                (self.model.attributes.count - index) * ROW_HEIGHT));
+              self.$el.prepend(_.string.sprintf('<prefix style="display: block; height: %dpx;"> </prefix>',
+                from * ROW_HEIGHT));
+              console.log("Scrolling to ", from * ROW_HEIGHT + deltaScroll)
+              self.$el.scrollTop(from * ROW_HEIGHT + deltaScroll);
+              break;
+            case REVERSE:
+              self.$el.append(_.string.sprintf('<suffix style="display: block; height: %dpx;"> </suffix>',
+                (self.model.attributes.count - from - 1) * ROW_HEIGHT));
+              self.$el.prepend(_.string.sprintf('<prefix style="display: block; height: %dpx;"> </prefix>',
+                index * ROW_HEIGHT));
+              console.log("Scrolling to ", from * ROW_HEIGHT + deltaScroll - heightToCover)
+              self.$el.scrollTop(index * ROW_HEIGHT + deltaScroll - heightToCover);
+              break;
+          }
         }
       }
-
-      var rightDeletions = 0;
-      for (i = self.model.attributes.count - 1; i > till - 1; --i) {
-        if (_.has(contentPromises, i)) {
-          delete contentPromises[i];
-          purgedOnes.push(i);
-        }
-      }
-
-      console.log(_.string.sprintf('Purged %d cached values [%s%s] out of %d, while rendering (%d to %d)',
-        purgedOnes.length, _.string.join(',', _.take(purgedOnes, 5)), purgedOnes.length > 5 ? '...' : '', population, from, till - 1));
     }
+    //additional ROW_HEIGHT to take into account partially visible rows
+    var largestCurrentRow = _.max(self.$('.item-row').toArray().map(getHeight));
+    return stacker(getHeight(self.$el) + _.max([largestCurrentRow, ROW_HEIGHT]), from);
   }
 
   return self;
-};
+}
