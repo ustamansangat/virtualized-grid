@@ -103,6 +103,27 @@ gulp.task('serve', ['styles', 'fonts'], function () {
   gulp.watch('bower.json', ['wiredep', 'fonts']);
 });
 
+gulp.task('test', [], function () {
+  browserSync({
+    notify: false,
+    port: 9001,
+    server: {
+      baseDir: ['test', 'app'],
+      routes: {
+        '/bower_components': 'bower_components'
+      }
+    }
+  });
+
+  // watch for changes
+  gulp.watch([
+    'app/scripts/**/*.js',
+    'test/*.html',
+  ]).on('change', reload);
+
+  gulp.watch('bower.json', ['wiredep', 'fonts']);
+});
+
 // inject bower components
 gulp.task('wiredep', function () {
   var wiredep = require('wiredep').stream;
@@ -120,7 +141,7 @@ gulp.task('wiredep', function () {
     .pipe(gulp.dest('app'));
 });
 
-gulp.task('build', ['jshint', 'html', 'images', 'fonts', 'extras'], function () {
+gulp.task('build', ['jshint', 'test', 'html', 'images', 'fonts', 'extras'], function () {
   return gulp.src('dist/**/*').pipe($.size({title: 'build', gzip: true}));
 });
 

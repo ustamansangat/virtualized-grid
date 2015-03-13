@@ -1,47 +1,51 @@
 /* jshint devel:true */
 /* @const */
-function mixinContentCachingTrait (self, options) {
+(function () {
+  'use strict';
+  var _ = this._;
 
-  var contentPromises = {};
+  this.mixinContentCachingTrait = function (self, options) {
 
-  var originalGetContent = self.getContent;
 
-  var MAX_CACHE_COUNT = (options || {}).MAX_CACHE_COUNT || Infinity;
+    var contentPromises = {};
 
-  self.getContent = function (index) {
-    var promise = contentPromises[index];
-    if (!promise) {
-      promise = contentPromises[index] = originalGetContent(index);
-    }
-    return promise;
-  }
+    var originalGetContent = self.getContent;
 
-  self.markVisible = function (from, tillInclusive) {
-    var population = _.size(contentPromises);
-    if (population > MAX_CACHE_COUNT) {
-      var i;
+    var MAX_CACHE_COUNT = (options || {}).MAX_CACHE_COUNT || Infinity;
 
-      var purgedOnes = []; //for debugging
-      var leftDeletions = 0;
-      for (i = 0; i < from; ++i) {
-        if (_.has(contentPromises, i)) {
-          delete contentPromises[i];
-          purgedOnes.push(i);
-        }
+    self.getContent = function (index) {
+      var promise = contentPromises[index];
+      if (!promise) {
+        promise = contentPromises[index] = originalGetContent(index);
       }
+      return promise;
+    };
 
-      var rightDeletions = 0;
-      for (i = self.model.attributes.count - 1; i > till; --i) {
-        if (_.has(contentPromises, i)) {
-          delete contentPromises[i];
-          purgedOnes.push(i);
+    self.markVisible = function (from, tillInclusive) {
+      var population = _.size(contentPromises);
+      if (population > MAX_CACHE_COUNT) {
+        var i;
+
+        var purgedOnes = []; //for debugging
+        for (i = 0; i < from; ++i) {
+          if (_.has(contentPromises, i)) {
+            delete contentPromises[i];
+            purgedOnes.push(i);
+          }
         }
+
+        for (i = self.model.attributes.count - 1; i > tillInclusive; --i) {
+          if (_.has(contentPromises, i)) {
+            delete contentPromises[i];
+            purgedOnes.push(i);
+          }
+        }
+
+        console.log(_.string.sprintf('Purged %d cached values [%s%s] out of %d, while rendering (%d to %d)',
+          purgedOnes.length, _.string.join(',', _.take(purgedOnes, 5)), purgedOnes.length > 5 ? '...' : '', population, from, tillInclusive));
       }
+    };
 
-      console.log(_.string.sprintf('Purged %d cached values [%s%s] out of %d, while rendering (%d to %d)',
-        purgedOnes.length, _.string.join(',', _.take(purgedOnes, 5)), purgedOnes.length > 5 ? '...' : '', population, from, till));
-    }
-  }
-
-  return self;
-}
+    return self;
+  };
+}.call(this));
