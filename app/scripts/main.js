@@ -38,7 +38,7 @@
 
     getContent: function (index) {
       var future = $.Deferred();
-      if (index % 2) {
+      if (index < 0) {
         future.resolve({
           heading: 'This is a header row',
           height: 10 * index
