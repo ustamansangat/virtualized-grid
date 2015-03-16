@@ -71,7 +71,7 @@
     el: $('people'),
     idProperty: 'name',
     model: new Backbone.Model({
-      count: 40
+      count: 100
     }),
     MAX_CACHE_COUNT: Infinity
   });

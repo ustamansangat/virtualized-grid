@@ -156,6 +156,7 @@
         if (scrollTop >= _.last(marks) || scrollTop + self.$el.height() <= prefix) {
           //none of the currently rendered rows will be visible
           from = ROW_HEIGHT === LAZY ? 0 : _.max([0 , Math.floor(scrollTop / ROW_HEIGHT)]);
+          deltaScroll = scrollTop - from * ROW_HEIGHT;
           direction = FORWARD;
         } else {
           var index;
@@ -214,7 +215,6 @@
                   (self.model.attributes.count - index) * ROW_HEIGHT));
                 self.$el.prepend(_.string.sprintf('<prefix style="display: block; height: %dpx;"> </prefix>',
                   from * ROW_HEIGHT));
-                console.log('Scrolling to', from * ROW_HEIGHT + deltaScroll);
                 self.$el.scrollTop(from * ROW_HEIGHT + deltaScroll);
                 break;
               case REVERSE:
@@ -222,16 +222,13 @@
                   (self.model.attributes.count - from - 1) * ROW_HEIGHT));
                 self.$el.prepend(_.string.sprintf('<prefix style="display: block; height: %dpx;"> </prefix>',
                   (index + 1) * ROW_HEIGHT));
-                console.log('Scrolling to', (index + 1) * ROW_HEIGHT + deltaScroll - heightToCover);
                 self.$el.scrollTop((index + 1) * ROW_HEIGHT - heightToCover);
                 break;
             }
           }
         }
       }
-      //additional ROW_HEIGHT to take into account partially visible rows
-      var largestCurrentRow = _.max(self.$('.item-row').toArray().map(getHeight));
-      return stacker(self.$el.height() + deltaScroll/*+ _.max([largestCurrentRow, ROW_HEIGHT])*/, from);
+      return stacker(self.$el.height() + deltaScroll, from);
     }
 
     return self;

@@ -8,9 +8,8 @@
   var Backbone = this.Backbone;
 
   describe('mixinVirtualizedContainerTrait', function () {
-  this.timeout(20000);
     describe('With equal height rows', function () {
-      var RENDER_DELAY = 32;
+      var RENDER_DELAY = 16;
       var Target, target;
       var ROW = 40;
       var VIRTUAL_COUNT = 8;
@@ -58,7 +57,11 @@
       });
 
       it('renders as many rows as needed to occupy the view port', function () {
-        expect($('.item-row').size()).to.equal(VIRTUAL_COUNT);
+        expect(target.$('.item-row').size()).to.equal(VIRTUAL_COUNT);
+      });
+
+      it('the viewport size is ' + (ROW * VIRTUAL_COUNT), function () {
+        expect(target.$el.height()).to.equal(ROW * VIRTUAL_COUNT);
       });
 
       it('renders rows with indexes in them', function () {
@@ -66,7 +69,7 @@
       });
 
       it('renders rows with proper contents', function () {
-        expect($('.item-row').map(function (i, el) {
+        expect(target.$('.item-row').map(function (i, el) {
           return $(el).text().trim();
         }).toArray())
         .to.deep.equal(_.range(0, VIRTUAL_COUNT).map(function (i){
@@ -75,36 +78,32 @@
       });
 
       function rendersRows(x, y) {
-        var rows = $('.item-row', '.ustaman').map(function (i, el) {
+        var rows = target.$('.item-row').map(function (i, el) {
                     return $(el).data('index');
                   }).toArray();
-//        if (linient && rows[0] === x - 1) {
-//        debugger;
-//          expect(y - 1, 'j').to.equal(_.last(rows));
-//        } else if(linient && rows[0] === x + 1) {
-//          expect(y + 1).to.equal(_.last(rows));
-//        } else {
-          expect(rows).to.deep.equal(_.range(x, y));
-//        }
+        expect(_.difference(_.range(x, y), rows)).to.deep.equal([]);
       }
 
       [{
         scroll: ROW / 2,
-        expect: [0, VIRTUAL_COUNT]
+        expect: [0, VIRTUAL_COUNT + 1]
       }, {
         scroll: ROW,
         expect: [1, VIRTUAL_COUNT + 1]
       },{
         scroll: ROW + 20,
-        expect: [1, VIRTUAL_COUNT + 1]
+        expect: [1, VIRTUAL_COUNT + 2]
+      },{
+        scroll: ROW + 30,
+        expect: [1, VIRTUAL_COUNT + 2]
+      }, {
+        scroll: ROW * 3,
+        expect: [3, VIRTUAL_COUNT + 3]
       },{
         scroll: ROW * 10,
         expect: [10, VIRTUAL_COUNT + 10]
       },{
         scroll: ROW * 97,
-        expect: [92, 100]
-      },{
-        scroll: ROW * 99,
         expect: [92, 100]
       }].forEach(function (suite, i, suites) {
         setupSuite(i, suites);
@@ -113,7 +112,7 @@
       function setupSuite(i, suites, follower) {
         describe(_.string.sprintf('[case %2d] When scrolled by %d', i, suites[i].scroll), function (done){
           beforeEach(function (done){
-            $('.ustaman').scrollTop(suites[i].scroll);
+            target.$el.scrollTop(suites[i].scroll);
             setTimeout(done, RENDER_DELAY * 2);
           });
           it('renders appropriate rows', function (){
