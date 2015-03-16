@@ -1,0 +1,8 @@
+node_modules
+dist
+*.idea
+*.iml
+.tmp
+.sass-cache
+bower_components
+test/bower_components
