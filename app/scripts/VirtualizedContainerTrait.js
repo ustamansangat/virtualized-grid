@@ -146,7 +146,7 @@
           acc.push(i === 0 ? h : h + acc[i - 1]);
           return acc;
         }, []);
-        var prefix = getHeight(self.$('prefix'));
+        var prefix = getHeight(self.$('prefix')) || 0;
         var marks = cumulativeHeights.map(function (ah) {
           return ah + prefix;
         });
@@ -156,7 +156,7 @@
         if (scrollTop >= _.last(marks) || scrollTop + self.$el.height() <= prefix) {
           //none of the currently rendered rows will be visible
           from = ROW_HEIGHT === LAZY ? 0 : _.max([0 , Math.floor(scrollTop / ROW_HEIGHT)]);
-          deltaScroll = scrollTop - from * ROW_HEIGHT;
+          deltaScroll = ROW_HEIGHT ? 0 : scrollTop - from * ROW_HEIGHT;
           direction = FORWARD;
         } else {
           var index;
