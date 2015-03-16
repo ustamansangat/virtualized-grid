@@ -207,7 +207,6 @@
           });
         } else {
           console.log('Rendered', from, 'to', index - direction);
-          self.markVisible(from, index); // TODO this should be guessed by the Collection itself instead
           if (ROW_HEIGHT !== LAZY) {
             switch(direction){
               case FORWARD:

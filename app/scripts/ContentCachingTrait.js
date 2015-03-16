@@ -5,9 +5,10 @@
   var _ = this._;
 
   this.mixinContentCachingTrait = function (self, options) {
-
+    /* A simple FIFO cache; not LRU */
 
     var contentPromises = {};
+    var indexes = [];
 
     var originalGetContent = self.getContent;
 
@@ -17,32 +18,23 @@
       var promise = contentPromises[index];
       if (!promise) {
         promise = contentPromises[index] = originalGetContent(index);
+        indexes.push(index);
+        purgeIfNeeded();
       }
       return promise;
     };
 
-    self.markVisible = function (from, tillInclusive) {
+    function purgeIfNeeded() {
       var population = _.size(contentPromises);
       if (population > MAX_CACHE_COUNT) {
-        var i;
-
         var purgedOnes = []; //for debugging
-        for (i = 0; i < from; ++i) {
-          if (_.has(contentPromises, i)) {
-            delete contentPromises[i];
-            purgedOnes.push(i);
-          }
-        }
-
-        for (i = self.model.attributes.count - 1; i > tillInclusive; --i) {
-          if (_.has(contentPromises, i)) {
-            delete contentPromises[i];
-            purgedOnes.push(i);
-          }
-        }
-
-        console.log(_.string.sprintf('Purged %d cached values [%s%s] out of %d, while rendering (%d to %d)',
-          purgedOnes.length, _.string.join(',', _.take(purgedOnes, 5)), purgedOnes.length > 5 ? '...' : '', population, from, tillInclusive));
+        _.take(indexes, Math.ceil(indexes.length / 4)).forEach(function (i) {
+          purgedOnes.push(i);
+          delete contentPromises[i];
+        });
+        indexes = _.tail(indexes, Math.ceil(indexes.length / 4));
+        console.log(_.string.sprintf('Purged %d cached values [%s%s] out of %d.',
+          purgedOnes.length, _.string.join(',', _.take(purgedOnes, 5)), purgedOnes.length > 5 ? '...' : '', population));
       }
     };
 
