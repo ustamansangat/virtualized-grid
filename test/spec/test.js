@@ -96,22 +96,16 @@
 
         Target = Backbone.View.extend({
 
-          rowTemplate: function (row) {
+          rowTemplate: function (rowModel) {
+            var row = rowModel.toJSON();
             return _.string.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black; background-color:%s;"> %s </div>',
-              this.isIrregularRow(row) ? (ROW * VIRTUAL_COUNT * 2) : ROW,
-              this.isIrregularRow(row) ? 'pink' : 'yellow',
+              this.isIrregularRow(rowModel) ? (ROW * VIRTUAL_COUNT * 2) : ROW,
+              this.isIrregularRow(rowModel) ? 'pink' : 'yellow',
               row.text);
           },
 
-          getContent: function (index) {
-            return $.Deferred().resolve({
-              text: _.string.sprintf('Row #%02d', index),
-              index: index
-            });
-          },
-
           isIrregularRow: function (row) {
-            return row.index === 32;
+            return row.get('index') === 32;
           },
 
           initialize: function (options) {
@@ -124,9 +118,14 @@
         target = new Target({
           el: $('.ustaman'),
           RENDER_DELAY: RENDER_DELAY,
-          model: new Backbone.Model({
-            count: 100
-          })
+          collection: new Backbone.Collection()
+        });
+
+        _.times(100, function (i) {
+          target.collection.add({
+              text: _.string.sprintf('Row #%02d', i),
+              index: i
+          });
         });
 
         target.render();
@@ -225,15 +224,12 @@
 
         Target = Backbone.View.extend({
 
-          rowTemplate: function (row) {
+          rowTemplate: function (rowModel) {
+            var row = rowModel.toJSON();
             return _.string.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', ROW, row.text);
           },
 
           isIrregularRow: _.constant(true),
-
-          getContent: function (index) {
-            return $.Deferred().resolve({text: _.string.sprintf('Row #%02d', index)});
-          },
 
           initialize: function (options) {
             Backbone.View.prototype.initialize.apply(this, arguments);
@@ -245,9 +241,14 @@
         target = new Target({
           el: $('.ustaman'),
           RENDER_DELAY: RENDER_DELAY,
-          model: new Backbone.Model({
-            count: 100
-          })
+          collection: new Backbone.Collection()
+        });
+
+        _.times(100, function (i) {
+          target.collection.add({
+              text: _.string.sprintf('Row #%02d', i),
+              index: i
+          });
         });
 
         target.render();
@@ -318,15 +319,12 @@
 
         Target = Backbone.View.extend({
 
-          rowTemplate: function (row) {
+          rowTemplate: function (rowModel) {
+            var row = rowModel.toJSON();
             return _.string.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', (1 + row.index) * 10, row.text);
           },
 
           isIrregularRow: _.constant(true),
-
-          getContent: function (index) {
-            return $.Deferred().resolve({text: _.string.sprintf('Row #%02d', index), index : index});
-          },
 
           initialize: function (options) {
             Backbone.View.prototype.initialize.apply(this, arguments);
@@ -338,9 +336,14 @@
         target = new Target({
           el: $('.ustaman'),
           RENDER_DELAY: RENDER_DELAY,
-          model: new Backbone.Model({
-            count: 100
-          })
+          collection: new Backbone.Collection()
+        });
+
+        _.times(100, function (i) {
+          target.collection.add({
+              text: _.string.sprintf('Row #%02d', i),
+              index: i
+          });
         });
 
         target.render();

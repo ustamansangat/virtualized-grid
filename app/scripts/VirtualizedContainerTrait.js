@@ -5,7 +5,6 @@
 
   var _ = this._;
   var Backbone = this.Backbone;
-  var mixinContentCachingTrait = this.mixinContentCachingTrait;
 
   /* @const */
   var LAZY = _.uniqueId('LAZY');
@@ -13,7 +12,6 @@
   var REVERSE = -1;
 
   function mixinVirtualizedContainerTrait (self, options) {
-    mixinContentCachingTrait(self, options);
     self.events = self.events || {};
     if (self.events.scroll) {
       throw new Error('Scroll event handler Note expected');
@@ -22,8 +20,8 @@
       self.render();//since this is de-bounced, we want to suppress passing arguments to it
     };
 
-    if (!_.isFunction(self.getContent)) {
-      throw new Error('Method getContent() is not implemented');
+    if (!self.collection) {
+      throw new Error('A backing collection must be provided');
     }
     if (!_.isFunction(self.rowTemplate)) {
       throw new Error('Method rowTemplate() is not implemented');
@@ -43,10 +41,9 @@
     self.render = _.debounce(function () {
                       //try to find the height of a "regular" row the FIRST time we render one
                       if (ROW_HEIGHT === LAZY) {
-                        setupDimensions().always(render);
-                      } else {
-                        render();
+                        setupDimensions();
                       }
+                      render();
                       return self;
                     }, options.RENDER_DELAY || 100);
 
@@ -66,43 +63,38 @@
       if ($row.css('box-sizing') !== 'border-box') {
         throw new Error('Only border-box supported.');
       }
-      self.getContent($row.data('index')).then(function (row) {
-        if (!self.isIrregularRow(row)) {
-          var actualHeight = getHeight($row);
-          if (actualHeight !== ROW_HEIGHT) {
-            throw new Error(_.string.sprintf('Height for %s is expected to be %d but found %d.', JSON.stringify(row), ROW_HEIGHT, actualHeight));
-          }
+      var rowModel = self.collection.at($row.data('index'));
+      if (!self.isIrregularRow(rowModel)) {
+        var actualHeight = getHeight($row);
+        if (actualHeight !== ROW_HEIGHT) {
+          throw new Error(_.string.sprintf('Height for %s is expected to be %d but found %d.', JSON.stringify(rowModel.toJSON()), ROW_HEIGHT, actualHeight));
         }
-      });
+      }
     }
 
     /** draws the ith row and attaches index and css classes */
     function prepareRow(i) {
-      return self.getContent(i).then(function (content) {
-        var $row = $(self.rowTemplate(content)).addClass('item-row').attr('data-index', i);
-        if (i === 0) {
-          $row.addClass('item-row-first');
-        }
-        if (i === self.model.attributes.count - 1) {
-          $row.addClass('item-row-last');
-        }
-        return $row;
-      });
+      var $row = $(self.rowTemplate(self.collection.at(i))).addClass('item-row').attr('data-index', i);
+      if (i === 0) {
+        $row.addClass('item-row-first');
+      }
+      if (i === self.collection.size() - 1) {
+        $row.addClass('item-row-last');
+      }
+      return $row;
     }
 
     function setupDimensions () {
       self.$el.empty();
-
-      function helper(i){
-        return i >= self.model.attributes.count ? $.Deferred().reject() : self.getContent(i).then(function (row) {
-          return self.isIrregularRow(row) ? helper(i + 1) : prepareRow(i).then(function ($row) {
-            $row.appendTo(self.$el);
-            ROW_HEIGHT = getHeight($row);
-            self.$el.empty();
-          });
-        });
-      }
-      return helper(0);
+      return self.collection.any(function (rowModel, i) {
+        if (self.isIrregularRow(rowModel)) {
+          return false;
+        }
+        var $row = prepareRow(i).appendTo(self.$el);
+        ROW_HEIGHT = getHeight($row);
+        self.$el.empty();
+        return true;
+      });
     }
 
     function getHeight(el) {
@@ -192,33 +184,32 @@
 
       self.$el.empty();
       function stacker(heightToCover, index) {
-        if ((heightToCover > 0 || ROW_HEIGHT === LAZY) && index < self.model.attributes.count && index >= 0) {
-          prepareRow(index).then(function ($row){
-            switch(direction){
-              case FORWARD:
-                self.$el.append($row);
-                break;
-              case REVERSE:
-                self.$el.prepend($row);
-                break;
-            }
-            validateDimensions($row);
-            stacker(heightToCover - getHeight($row), index + direction);
-          });
+        if ((heightToCover > 0 || ROW_HEIGHT === LAZY) && index < self.collection.size() && index >= 0) {
+          var $row = prepareRow(index);
+          switch(direction){
+            case FORWARD:
+              self.$el.append($row);
+              break;
+            case REVERSE:
+              self.$el.prepend($row);
+              break;
+          }
+          validateDimensions($row);
+          stacker(heightToCover - getHeight($row), index + direction);
         } else {
           console.log('Rendered', from, 'to', index - direction);
           if (ROW_HEIGHT !== LAZY) {
             switch(direction){
               case FORWARD:
                 self.$el.append(_.string.sprintf('<suffix style="display: block; height: %dpx;"> </suffix>',
-                  (self.model.attributes.count - index) * ROW_HEIGHT));
+                  (self.collection.size() - index) * ROW_HEIGHT));
                 self.$el.prepend(_.string.sprintf('<prefix style="display: block; height: %dpx;"> </prefix>',
                   from * ROW_HEIGHT));
                 self.$el.scrollTop(from * ROW_HEIGHT + deltaScroll);
                 break;
               case REVERSE:
                 self.$el.append(_.string.sprintf('<suffix style="display: block; height: %dpx;"> </suffix>',
-                  (self.model.attributes.count - from - 1) * ROW_HEIGHT));
+                  (self.collection.size() - from - 1) * ROW_HEIGHT));
                 self.$el.prepend(_.string.sprintf('<prefix style="display: block; height: %dpx;"> </prefix>',
                   (index + 1) * ROW_HEIGHT));
                 self.$el.scrollTop((index + 1) * ROW_HEIGHT - heightToCover);

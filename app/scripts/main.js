@@ -27,36 +27,19 @@
 
     idProperty: 'id',
 
-    template: _.template('<div <%= expanded ? "expanded" : ""%> data-id="<%- rowId %>"><%- row.name %> <address><%- row.address %></address></div>'),
+    template: _.template('<div <%= expanded ? "expanded" : ""%> data-id="<%- row.id %>"><%- row.name %> <address><%- row.address %></address></div>'),
 
-    rowTemplate: function (row) {
-      return row.heading ? _.string.sprintf('<div class="header" style="height:%dpx;">%s</div>', row.height, row.heading) : this.template({
-        expanded: this._expandedRows[row[this.idProperty]],
-        rowId: row[this.idProperty],
-        row: row
-      });
-    },
-
-    getContent: function (index) {
-      var future = $.Deferred();
-      if ((index + 1) % 8 === 0) {
-        future.resolve({
-          heading: 'This is a header row',
-          height: 10 * index
+    rowTemplate: function (rowModel) {
+      return rowModel.get('heading') ?
+        _.string.sprintf('<div class="header" style="height:%dpx;">%s</div>', rowModel.get('height'), rowModel.get('heading')) :
+        this.template({
+          expanded: this._expandedRows[rowModel.get(this.idProperty)],
+          row: rowModel.toJSON()
         });
-      } else {
-        setTimeout(function (){
-          future.resolve({
-            name: 'Person#' + _.string.pad(index, 2, '0'),
-            address: 'Address for\n item-row#' + index
-          });
-        }, _.random(5) * 0);
-      }
-      return future.promise();
     },
 
-    isIrregularRow: function (row){
-      return row.heading || this._expandedRows[row[this.idProperty]];
+    isIrregularRow: function (rowModel){
+      return rowModel.get('heading') || this._expandedRows[rowModel.get(this.idProperty)];
     },
 
     initialize: function (options) {
@@ -71,10 +54,21 @@
   var container = new PeopleView({
     el: $('people'),
     idProperty: 'name',
-    model: new Backbone.Model({
-      count: 100
-    }),
+    collection: new Backbone.Collection(),
     MAX_CACHE_COUNT: Infinity
+  });
+
+  _.times(100, function (index) {
+    container.collection.add(new Backbone.Model( (index + 1) % 8 === 0 ?
+      {
+        heading: 'This is a header row',
+        height: 10 * index,
+        id: 'p' + index
+      } : {
+        name: 'Person#' + _.string.pad(index, 2, '0'),
+        id: 'p' + index
+      })
+    );
   });
 
   container.render();
