@@ -17,6 +17,7 @@
         if(expanded !== undefined) {
           $row.removeAttr('expanded');
           delete this._expandedRows[id];
+          this.render();
         } else {
           $row.attr('expanded', '');
           this._expandedRows[id] = true;
