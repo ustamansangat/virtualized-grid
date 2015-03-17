@@ -4,13 +4,14 @@
   'use strict';
 
   var _ = this._;
+  var _s = this._.string;
   var mixinVirtualizedContainerTrait = this.mixinVirtualizedContainerTrait;
   var Backbone = this.Backbone;
 
   var PeopleView = Backbone.View.extend({
 
     events: {
-      'click .item-row:not(.loading)' : function (event){
+      'click .item-row' : function (event){
         var $row = $(event.target).closest('.item-row');
         var id = $row.data('id');
         var expanded = $row.attr('expanded');
@@ -25,13 +26,13 @@
       }
     },
 
-    idProperty: 'id',
+    idProperty: 'name',
 
-    template: _.template('<div <%= expanded ? "expanded" : ""%> data-id="<%- row.id %>"><%- row.name %> <address><%- row.address %></address></div>'),
+    template: _.template('<div <%= expanded ? "expanded" : ""%> data-id="<%- row.name %>"><%- row.name %> <address><%- row.address %></address></div>'),
 
     rowTemplate: function (rowModel) {
       return rowModel.get('heading') ?
-        _.string.sprintf('<div class="header" style="height:%dpx;">%s</div>', rowModel.get('height'), rowModel.get('heading')) :
+        _s.sprintf('<div class="header" style="height:%dpx;">%s</div>', rowModel.get('height'), rowModel.get('heading')) :
         this.template({
           expanded: this._expandedRows[rowModel.get(this.idProperty)],
           row: rowModel.toJSON()
@@ -62,11 +63,9 @@
     container.collection.add(new Backbone.Model( (index + 1) % 8 === 0 ?
       {
         heading: 'This is a header row',
-        height: 10 * index,
-        id: 'p' + index
+        height: 10 * index
       } : {
-        name: 'Person#' + _.string.pad(index, 2, '0'),
-        id: 'p' + index
+        name: 'Person#' + _s.pad(index, 2, '0')
       })
     );
   });
