@@ -33,7 +33,7 @@
     "vinyl-source-stream": "^1.1.0",
     "vinyl-transform": "1.0.0",
     "watchify": "^2.4.0",
-    "wiredep": "^2.0.0",
+    "yargs": "^3.5.4",
 
     "jquery": "2.1.0",
     "underscore": "1.8.2",

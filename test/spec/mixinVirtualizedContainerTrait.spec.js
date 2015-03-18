@@ -11,7 +11,6 @@ var should = chai.should();
 
 
 describe('mixinVirtualizedContainerTrait', function () {
-  var RENDER_DELAY = 16;
   var ROW = 40;
   var VIRTUAL_COUNT = 8;
   var Target, target;
@@ -60,19 +59,22 @@ describe('mixinVirtualizedContainerTrait', function () {
   function setupSuite(suite, suites, title) {
     var caseNo = suites ? _s.sprintf(' [case %2d]', _.indexOf(suites, suite)) : '';
     title = _s.sprintf('%s%s', title || '', caseNo) ;
-    describe(_s.sprintf('%s When scrolled by %d', title , suite.scroll), function (done){
+    describe(_s.sprintf('%s When scrolled by %d', title , suite.scroll), function (){
       beforeEach(function (done){
         target.$el.scrollTop(suite.scroll);
-        setTimeout(done, RENDER_DELAY * 2);
+         _.defer(done);
       });
+
       it('renders appropriate rows', function (){
         rendersRows.apply(null, suite.expect);
       });
+
       if (suites) {
         _.without(suites, suite).forEach(function (next) {
           setupSuite(next, null, _s.sprintf('then [case %2d]', _.indexOf(suites, next)) );
         });
       }
+
       if (suite.additionalNextSteps) {
         suite.additionalNextSteps.forEach(function (next) {
           setupSuite(next, null, _s.sprintf('then also [case %2d]', _.indexOf(suite.additionalNextSteps, next)) );
@@ -98,7 +100,7 @@ describe('mixinVirtualizedContainerTrait', function () {
                 scroll: _.identity
               }
         }))();
-      }).to.Throw(/scroll event/i);
+      }).to.throw(/scroll event/i);
     });
 
     it ('Throws if rowTemplate is not specified', function (){
@@ -106,7 +108,7 @@ describe('mixinVirtualizedContainerTrait', function () {
         new Target({
           collection: new Backbone.Collection()
         });
-      }).to.Throw(/rowTemplate/);
+      }).to.throw(/rowTemplate/);
     });
 
     it ('Throws if render is already overridden', function (){
@@ -117,21 +119,19 @@ describe('mixinVirtualizedContainerTrait', function () {
         }))({
           collection: new Backbone.Collection()
         });
-      }).to.Throw(/render/i);
+      }).to.throw(/render/i);
     });
 
     describe('Proper Template class', function () {
 
       beforeEach(function (){
-        Target = Target.extend({
-                     rowTemplate: _.constant('yo')
-                 });
+        Target.prototype.rowTemplate = _.constant('yo');
       });
 
       it ('Throws if a collection is not provided', function (){
         expect(function () {
           new Target();
-        }).to.Throw(/backing collection/i);
+        }).to.throw(/backing collection/i);
       });
 
       it ('Throws if an el is not specified', function (){
@@ -139,7 +139,7 @@ describe('mixinVirtualizedContainerTrait', function () {
           new Target({
             collection: new Backbone.Collection()
           });
-        }).to.Throw();
+        }).to.throw();
       });
 
       it ('Throws if el does not support scrolling', function (){
@@ -148,340 +148,328 @@ describe('mixinVirtualizedContainerTrait', function () {
             collection: new Backbone.Collection(),
             el: $('<div style="overflow-y: hidden;"> </div>')
           });
-        }).to.Throw(/overflow.*scroll/i);
+        }).to.throw(/overflow.*scroll/i);
         expect(function () {
           new Target({
             collection: new Backbone.Collection(),
             el: $('<div style="overflow-y: auto;"> </div>')
           });
-        }).not.to.Throw(/overflow.*scroll/i);
+        }).not.to.throw(/overflow.*scroll/i);
         expect(function () {
           new Target({
             collection: new Backbone.Collection(),
             el: $('<div style="overflow-y: scroll;"> </div>')
           });
-        }).not.to.Throw(/overflow.*scroll/i);
+        }).not.to.throw(/overflow.*scroll/i);
       });
 
+      it ('Throws if a row is incompatibly formatted', function (){
+        target = new Target({
+          collection: new Backbone.Collection(),
+          el: $('<div style="overflow-y: scroll; height: 100px;"> </div>')
+        });
+        target.collection.add({});
+        expect(target.render).to.throw(/display.*block/i);
+      });
+
+      it ('Debounced render option is honored', function (done){
+        Target.prototype.rowTemplate = _.constant('<div style="display:block; box-sizing:content-box; height: 10px;">Yo</div>');
+        target = new Target({
+          collection: new Backbone.Collection(),
+          el: $('<div style="overflow-y: scroll; height: 100px;"> </div>'),
+          RENDER_DELAY: 10
+        });
+        target.collection.add({});
+        target.collection.add({});
+        target.render();
+        setTimeout(function (){
+          expect(target.$('.item-row').size()).to.equal(0);
+        }, 0);
+        setTimeout(function (){
+          expect(target.$('.item-row').size()).to.equal(2);
+          done();
+        }, 11);
+      });
     });
   });
 
-  describe('With equal height rows and a few irregular ones', function () {
+  describe('Runtime tests', function () {
     beforeEach(function (){
+      Target = Backbone.View.extend ({
+          initialize: function (options) {
+            Backbone.View.prototype.initialize.apply(this, arguments);
+            mixinVirtualizedContainerTrait(this, options);
+          }
+      });
       $(_s.sprintf('<div class="ustaman" style="height: %dpx; overflow-y: auto; border: 1px solid red; width: 200px; margin: 30px;"></div>', ROW * VIRTUAL_COUNT)).prependTo('body');
     });
 
-    afterEach(function (done){
-      setTimeout(function (){
-        target.remove();
-        $('.ustaman').remove();
-        done();
-      }, RENDER_DELAY * 2);
+    afterEach(function (){
+      target.remove();
+      $('.ustaman').remove();
     });
 
-    beforeEach(function (done){
-
-      Target = Backbone.View.extend({
-
-        rowTemplate: function (rowModel) {
-          var row = rowModel.toJSON();
-          return _s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black; background-color:%s;"> %s </div>',
-            this.isIrregularRow(rowModel) ? (ROW * VIRTUAL_COUNT * 2) : ROW,
-            this.isIrregularRow(rowModel) ? 'pink' : 'yellow',
-            row.text);
-        },
-
-        isIrregularRow: function (row) {
-          return row.get('index') === 32;
-        },
-
-        initialize: function (options) {
-          Backbone.View.prototype.initialize.apply(this, arguments);
-          mixinVirtualizedContainerTrait(this, options);
-        }
-
-      });
-
-      target = new Target({
-        el: $('.ustaman'),
-        RENDER_DELAY: RENDER_DELAY,
-        collection: new Backbone.Collection()
-      });
-
-      _.times(100, function (i) {
-        target.collection.add({
-            text: _s.sprintf('Row #%02d', i),
-            index: i
+    function createAndPopulate(Constructor) {
+        var instance = new Constructor({
+          el: $('.ustaman'),
+          collection: new Backbone.Collection()
         });
-      });
 
-      target.render();
-      setTimeout(done, RENDER_DELAY + 1);
-    });
-
-    it('renders as many rows as needed to occupy the view port', function () {
-      expect(target.$('.item-row').size()).to.equal(VIRTUAL_COUNT);
-    });
-
-    it('the viewport size is ' + (ROW * VIRTUAL_COUNT), function () {
-      expect(target.$el.height()).to.equal(ROW * VIRTUAL_COUNT);
-    });
-
-    it('renders rows with indexes in them', function () {
-      rendersRows(0, VIRTUAL_COUNT);
-    });
-
-    it('renders rows with proper contents', function () {
-      expect(target.$('.item-row').map(function (i, el) {
-        return $(el).text().trim();
-      }).toArray())
-      .to.deep.equal(_.range(0, VIRTUAL_COUNT).map(function (i){
-        return _s.sprintf('Row #%02d', i);
-      }));
-    });
-
-
-    [{
-      scroll: ROW / 2,
-      expect: [0, VIRTUAL_COUNT + 1]
-    }, {
-      scroll: ROW,
-      expect: [1, VIRTUAL_COUNT + 2]
-    },{
-      scroll: ROW + 20,
-      expect: [1, VIRTUAL_COUNT + 2]
-    },{
-      scroll: ROW + 30,
-      expect: [1, VIRTUAL_COUNT + 2]
-    }, {
-      scroll: ROW * 3,
-      expect: [3, VIRTUAL_COUNT + 4]
-    },{
-      scroll: ROW * 10,
-      expect: [10, VIRTUAL_COUNT + 10]
-    },{
-      scroll: ROW * 33,
-      expect: [33, VIRTUAL_COUNT + 33]
-    },{
-      scroll: ROW * 97,
-      expect: [92, 100]
-    }].forEach(function (suite, i, suites) {
-      setupSuite(suite, suites);
-    });
-
-    [{
-      scroll: ROW * 32,
-      expect: [32, 33],
-      additionalNextSteps: [{
-        scroll: ROW * 33,
-        expect: [32, 33]
-      },{
-        scroll: ROW * 32 + ROW * VIRTUAL_COUNT,
-        expect: [32, 33]
-      },{
-        scroll: ROW * 32 + ROW * VIRTUAL_COUNT * 2 - 3,
-        expect: [32, 41]
-      },{
-        scroll: ROW * 32 + ROW * VIRTUAL_COUNT * 2 + 1,
-        expect: [48, 57]
-      }]
-    },{
-      scroll: ROW * 32 + ROW - 1,
-      expect: [32, 33]
-    }].forEach(function (suite, i, suites) {
-      setupSuite(suite, suites, 'Large Row');
-    });
-
-  });
-
-  describe('With all rows marked irregular but with same height', function () {
-    beforeEach(function (){
-      $(_s.sprintf('<div class="ustaman" style="height: %dpx; overflow-y: auto; border: 1px solid red; width: 200px; margin: 30px;"></div>', ROW * VIRTUAL_COUNT)).prependTo('body');
-    });
-
-    afterEach(function (done){
-      setTimeout(function (){
-        target.remove();
-        $('.ustaman').remove();
-        done();
-      }, RENDER_DELAY * 2);
-    });
-
-    beforeEach(function (done){
-
-      Target = Backbone.View.extend({
-
-        rowTemplate: function (rowModel) {
-          var row = rowModel.toJSON();
-          return _s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', ROW, row.text);
-        },
-
-        isIrregularRow: _.constant(true),
-
-        initialize: function (options) {
-          Backbone.View.prototype.initialize.apply(this, arguments);
-          mixinVirtualizedContainerTrait(this, options);
-        }
-
-      });
-
-      target = new Target({
-        el: $('.ustaman'),
-        RENDER_DELAY: RENDER_DELAY,
-        collection: new Backbone.Collection()
-      });
-
-      _.times(100, function (i) {
-        target.collection.add({
-            text: _s.sprintf('Row #%02d', i),
-            index: i
+        _.times(100, function (i) {
+          instance.collection.add({
+              text: _s.sprintf('Row #%02d', i),
+              index: i
+          });
         });
-      });
 
-      target.render();
-      setTimeout(done, RENDER_DELAY + 1);
-    });
-
-    it('renders ALL rows', function () {
-      expect(target.$('.item-row').size()).to.equal(100);
-    });
-
-    it('the viewport size is ' + (ROW * VIRTUAL_COUNT), function () {
-      expect(target.$el.height()).to.equal(ROW * VIRTUAL_COUNT);
-    });
-
-    it('renders rows with indexes in them', function () {
-      rendersRows(0, 100, 0, VIRTUAL_COUNT + 1);
-    });
-
-    it('renders rows with proper contents', function () {
-      expect(target.$('.item-row').map(function (i, el) {
-        return $(el).text().trim();
-      }).toArray())
-      .to.deep.equal(_.range(0, 100).map(function (i){
-        return _s.sprintf('Row #%02d', i);
-      }));
-    });
-
-    [{
-      scroll: ROW / 2,
-      expect: [0, 100, 0, VIRTUAL_COUNT + 2]
-    }, {
-      scroll: ROW,
-      expect: [0, 100, 0, VIRTUAL_COUNT + 2]
-    },{
-      scroll: ROW + 20,
-      expect: [0, 100, 0, VIRTUAL_COUNT + 2]
-    },{
-      scroll: ROW + 30,
-      expect: [0, 100, 0, VIRTUAL_COUNT + 2]
-    }, {
-      scroll: ROW * 3,
-      expect: [0, 100, 0, VIRTUAL_COUNT + 2]
-    },{
-      scroll: ROW * 10,
-      expect: [0, 100, 0, VIRTUAL_COUNT + 2]
-    },{
-      scroll: ROW * 97,
-      expect: [0, 100, 0, VIRTUAL_COUNT + 2]
-    }].forEach(function (suite, i, suites) {
-      setupSuite(suite, suites);
-    });
-  });
-
-  describe('With only irregular rows with irregular heights', function () {
-    beforeEach(function (){
-      $(_s.sprintf('<div class="ustaman" style="height: %dpx; overflow-y: auto; border: 1px solid red; width: 200px; margin: 30px;"></div>', ROW * VIRTUAL_COUNT)).prependTo('body');
-    });
-
-    afterEach(function (done){
-      setTimeout(function (){
-        target.remove();
-        $('.ustaman').remove();
-        done();
-      }, RENDER_DELAY * 2);
-    });
-
-    beforeEach(function (done){
-
-      Target = Backbone.View.extend({
-
-        rowTemplate: function (rowModel) {
-          var row = rowModel.toJSON();
-          return _s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', (1 + row.index) * 10, row.text);
-        },
-
-        isIrregularRow: _.constant(true),
-
-        initialize: function (options) {
-          Backbone.View.prototype.initialize.apply(this, arguments);
-          mixinVirtualizedContainerTrait(this, options);
-        }
-
-      });
-
-      target = new Target({
-        el: $('.ustaman'),
-        RENDER_DELAY: RENDER_DELAY,
-        collection: new Backbone.Collection()
-      });
-
-      _.times(100, function (i) {
-        target.collection.add({
-            text: _s.sprintf('Row #%02d', i),
-            index: i
-        });
-      });
-
-      target.render();
-      setTimeout(done, RENDER_DELAY + 1);
-    });
-
-    it('renders ALL rows', function () {
-      expect(target.$('.item-row').size()).to.equal(100);
-    });
-
-    it('the viewport size is ' + (ROW * VIRTUAL_COUNT), function () {
-      expect(target.$el.height()).to.equal(ROW * VIRTUAL_COUNT);
-    });
-
-    it('renders rows with indexes in them', function () {
-      rendersRows(0, 100);
-    });
-
-    it('renders rows with proper contents', function () {
-      expect(target.$('.item-row').map(function (i, el) {
-        return $(el).text().trim();
-      }).toArray())
-      .to.deep.equal(_.range(0, 100).map(function (i){
-        return _s.sprintf('Row #%02d', i);
-      }));
-    });
-
-    function rendersRows(x, y) {
-      var rows = target.$('.item-row').map(function (i, el) {
-                  return $(el).data('index');
-                }).toArray();
-      expect(_.difference(_.range(x, y), rows)).to.deep.equal([]);
+        return instance.render();
     }
 
-    var visibleCount = Math.ceil((Math.sqrt(25 + 20 * ROW * VIRTUAL_COUNT) - 5 ) / 10);
-    [{
-      scroll: ROW / 2,
-      expect: [0, 100, 0, visibleCount]
-    }, {
-      scroll: ROW,
-      expect: [0, 100, 0, visibleCount]
-    },{
-      scroll: ROW + 20,
-      expect: [0, 100, 0, visibleCount]
-    },{
-      scroll: ROW * 90,
-      expect: [0, 100, 0, visibleCount]
-    }].forEach(function (suite, i, suites) {
-      setupSuite(suite, suites);
+    describe('With equal height rows and a few irregular ones', function () {
+
+      beforeEach(function (done){
+        target = createAndPopulate(Target.extend({
+          rowTemplate: function (rowModel) {
+            var row = rowModel.toJSON();
+            var irregular = row.index === 32;
+            return _s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black; background-color:%s;"> %s </div>',
+             irregular ? (ROW * VIRTUAL_COUNT * 2) : ROW, irregular ? 'pink' : 'yellow', row.text);
+          },
+          isIrregularRow: function (row) {
+            return row.get('index') === 32;
+          },
+        }));
+        _.defer(done);
+      });
+
+      it('renders as many rows as needed to occupy the view port', function () {
+        expect(target.$('.item-row').size()).to.equal(VIRTUAL_COUNT);
+      });
+
+      it('the viewport size is ' + (ROW * VIRTUAL_COUNT), function () {
+        expect(target.$el.height()).to.equal(ROW * VIRTUAL_COUNT);
+      });
+
+      it('renders rows with indexes in them', function () {
+        rendersRows(0, VIRTUAL_COUNT);
+      });
+
+      it('renders rows with proper contents', function () {
+        expect(target.$('.item-row').map(function (i, el) {
+          return $(el).text().trim();
+        }).toArray())
+        .to.deep.equal(_.range(0, VIRTUAL_COUNT).map(function (i){
+          return _s.sprintf('Row #%02d', i);
+        }));
+      });
+
+      describe('Incompatible "regular" row', function (){
+        var recordedError;
+        var originalListener
+        beforeEach(function () {
+          originalListener = window.onerror;
+          window.onerror = function (error) {
+              recordedError = error;
+              return false;
+          };
+          var originalRowTemplate = target.rowTemplate;
+          target.rowTemplate = function (rowModel) {
+            switch (rowModel.get('index')) {
+              case 60:
+                return '<div style="height:6px;"/>';
+              case 70:
+                return _s.sprintf('<div style="display:inline-block;height:%dpx;"/>', ROW);
+              default:
+                return originalRowTemplate(rowModel);
+            }
+          };
+        });
+        afterEach(function () {
+          window.onerror = originalListener;
+        });
+
+        it('throws at the row with unexpected height', function (done){
+          target.$el.scrollTop(57 * ROW);
+          _.defer(function (){
+            expect(recordedError).to.match(/height.*expected/i).and.to.match(/40/).and.to.match(/6/);
+            rendersRows(57, 61);
+            done();
+          });
+        });
+        it('throws at the row with unexpected display', function (done){
+          target.$el.scrollTop(67 * ROW);
+          _.defer(function (){
+            expect(recordedError).to.match(/display.*block/i);
+            rendersRows(67, 71);
+            done();
+          });
+        });
+      });
+
+      [{
+        scroll: ROW / 2,
+        expect: [0, VIRTUAL_COUNT + 1]
+      }, {
+        scroll: ROW,
+        expect: [1, VIRTUAL_COUNT + 2]
+      },{
+        scroll: ROW + 20,
+        expect: [1, VIRTUAL_COUNT + 2]
+      },{
+        scroll: ROW + 30,
+        expect: [1, VIRTUAL_COUNT + 2]
+      }, {
+        scroll: ROW * 3,
+        expect: [3, VIRTUAL_COUNT + 4]
+      },{
+        scroll: ROW * 10,
+        expect: [10, VIRTUAL_COUNT + 10]
+      },{
+        scroll: ROW * 33,
+        expect: [33, VIRTUAL_COUNT + 33]
+      },{
+        scroll: ROW * 97,
+        expect: [92, 100]
+      }].forEach(function (suite, i, suites) {
+        setupSuite(suite, suites);
+      });
+
+      [{
+        scroll: ROW * 32,
+        expect: [32, 33],
+        additionalNextSteps: [{
+          scroll: ROW * 33,
+          expect: [32, 33]
+        },{
+          scroll: ROW * 32 + ROW * VIRTUAL_COUNT,
+          expect: [32, 33]
+        },{
+          scroll: ROW * 32 + ROW * VIRTUAL_COUNT * 2 - 3,
+          expect: [32, 41]
+        },{
+          scroll: ROW * 32 + ROW * VIRTUAL_COUNT * 2 + 1,
+          expect: [48, 57]
+        }]
+      },{
+        scroll: ROW * 32 + ROW - 1,
+        expect: [32, 33]
+      }].forEach(function (suite, i, suites) {
+        setupSuite(suite, suites, 'Large Row');
+      });
+
     });
 
-  });
+    describe('With all rows marked irregular but with same height', function () {
 
+      beforeEach(function (done){
+        target = createAndPopulate(Target.extend({
+          rowTemplate: function (rowModel) {
+            var row = rowModel.toJSON();
+            return _s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', ROW, row.text);
+          },
+          isIrregularRow: _.constant(true),
+        }));
+        _.defer(done);
+      });
+
+      it('renders ALL rows', function () {
+        expect(target.$('.item-row').size()).to.equal(100);
+      });
+
+      it('the viewport size is ' + (ROW * VIRTUAL_COUNT), function () {
+        expect(target.$el.height()).to.equal(ROW * VIRTUAL_COUNT);
+      });
+
+      it('renders rows with indexes in them', function () {
+        rendersRows(0, 100, 0, VIRTUAL_COUNT + 1);
+      });
+
+      it('renders rows with proper contents', function () {
+        expect(target.$('.item-row').map(function (i, el) {
+          return $(el).text().trim();
+        }).toArray())
+        .to.deep.equal(_.range(0, 100).map(function (i){
+          return _s.sprintf('Row #%02d', i);
+        }));
+      });
+
+      [{
+        scroll: ROW / 2,
+        expect: [0, 100, 0, VIRTUAL_COUNT + 2]
+      }, {
+        scroll: ROW,
+        expect: [0, 100, 0, VIRTUAL_COUNT + 2]
+      },{
+        scroll: ROW + 20,
+        expect: [0, 100, 0, VIRTUAL_COUNT + 2]
+      },{
+        scroll: ROW + 30,
+        expect: [0, 100, 0, VIRTUAL_COUNT + 2]
+      }, {
+        scroll: ROW * 3,
+        expect: [0, 100, 0, VIRTUAL_COUNT + 2]
+      },{
+        scroll: ROW * 10,
+        expect: [0, 100, 0, VIRTUAL_COUNT + 2]
+      },{
+        scroll: ROW * 97,
+        expect: [0, 100, 0, VIRTUAL_COUNT + 2]
+      }].forEach(function (suite, i, suites) {
+        setupSuite(suite, suites);
+      });
+    });
+
+    describe('With only irregular rows with irregular heights', function () {
+      //the visible count is based on the solution of how many rows fit in the view
+      var visibleCount = Math.ceil((Math.sqrt(25 + 20 * ROW * VIRTUAL_COUNT) - 5 ) / 10);
+      beforeEach(function (done){
+        target = createAndPopulate(Target.extend({
+          rowTemplate: function (rowModel) {
+            var row = rowModel.toJSON();
+            return _s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', (1 + row.index) * 10, row.text);
+          },
+          isIrregularRow: _.constant(true),
+        }));
+        _.defer(done);
+      });
+
+      it('renders ALL rows', function () {
+        expect(target.$('.item-row').size()).to.equal(100);
+      });
+
+      it('the viewport size is ' + (ROW * VIRTUAL_COUNT), function () {
+        expect(target.$el.height()).to.equal(ROW * VIRTUAL_COUNT);
+      });
+
+      it('renders rows with indexes in them', function () {
+        rendersRows(0, 100, 0, visibleCount);
+      });
+
+      it('renders rows with proper contents', function () {
+        expect(target.$('.item-row').map(function (i, el) {
+          return $(el).text().trim();
+        }).toArray())
+        .to.deep.equal(_.range(0, 100).map(function (i){
+          return _s.sprintf('Row #%02d', i);
+        }));
+      });
+
+      [{
+        scroll: ROW / 2,
+        expect: [0, 100, 0, visibleCount]
+      }, {
+        scroll: ROW,
+        expect: [0, 100, 0, visibleCount]
+      },{
+        scroll: ROW + 20,
+        expect: [0, 100, 0, visibleCount]
+      },{
+        scroll: ROW * 90,
+        expect: [0, 100, 0, visibleCount]
+      }].forEach(function (suite, i, suites) {
+        setupSuite(suite, suites);
+      });
+
+    });
+  });
 });

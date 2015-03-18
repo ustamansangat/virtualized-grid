@@ -4,16 +4,19 @@ A vritualized grid to handle a large number or rows - where some rows can have n
 ## Installation
 
     $ npm install --save-dev
-    $ bower install
     $ gulp serve
 
-If a browser window doesn't automatically open, then visit http://localhost:9000/
 
 To run tests
 
-    $ cd test
-    $ bower install
     $ gulp test
+
+And to watch for changes an re-test
+
+    $ gult test --watch
+
+Similary, --cover flag will show coverage report.
+
 
 If a browser window doesn't automatically open, visit http://localhost:9001/
 

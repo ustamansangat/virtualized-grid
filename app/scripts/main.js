@@ -1,7 +1,9 @@
 /* jshint devel:true */
+'use strict';
+
 var _ = require('underscore');
-var _s = require('underscore.string');
 var $ = require('jquery');
+var _s = require('underscore.string');
 var Backbone = require('backbone');
 
 var mixinVirtualizedContainerTrait = require('../../lib/mixinVirtualizedContainerTrait');
@@ -37,7 +39,7 @@ var PeopleView = Backbone.View.extend({
       });
   },
 
-  isIrregularRow: function (rowModel){
+  isIrregularRow: function (rowModel) {
     return rowModel.get('heading') || this._expandedRows[rowModel.get(this.idProperty)];
   },
 
@@ -54,6 +56,7 @@ var container = new PeopleView({
   el: $('people'),
   idProperty: 'name',
   collection: new Backbone.Collection(),
+  RENDER_DELAY: 50,
   MAX_CACHE_COUNT: Infinity
 });
 
