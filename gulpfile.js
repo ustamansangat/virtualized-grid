@@ -9,11 +9,12 @@ var reload = browserSync.reload;
 
 var transform = require('vinyl-transform');
 var browserify = require('browserify');
-//var gutil = require('gulp-util');
+var gutil = require('gulp-util');
+var watchify = require('watchify');
+var mochify = require('mochify');
 //var sourcemaps = require('gulp-sourcemaps');
-//var source = require('vinyl-source-stream');
+var source = require('vinyl-source-stream');
 //var buffer = require('vinyl-buffer');
-//var watchify = require('watchify');
 
 gulp.task('help', gulpTaskListing);
 
@@ -68,9 +69,7 @@ gulp.task('images', function () {
 });
 
 gulp.task('fonts', function () {
-  return gulp.src(require('main-bower-files')({
-    filter: '**/*.{eot,svg,ttf,woff,woff2}'
-  }).concat('app/fonts/**/*'))
+  return gulp.src('app/fonts/**/*')
     .pipe(gulp.dest('.tmp/fonts'))
     .pipe(gulp.dest('dist/fonts'));
 });
@@ -87,15 +86,31 @@ gulp.task('extras', function () {
 gulp.task('clean', require('del').bind(null, ['.tmp', 'dist', 'dist-test']));
 
 gulp.task('serve', ['styles', 'fonts'], function () {
+
+  var bundler = watchify(browserify('./app/scripts/main.js', watchify.args));
+  bundler.on('update', rebundle);
+
+  function rebundle() {
+    return bundler.bundle()
+      // log errors if they happen
+      .on('error', gutil.log.bind(gutil, 'Browserify Error'))
+      .pipe(source('main.js'))
+      .pipe(gulp.dest('./dist'));
+  }
+
   browserSync({
-    notify: false,
-    port: 9000,
+    notify: true,
     server: {
-      baseDir: ['.tmp', 'app'],
-      routes: {
-        '/bower_components': 'bower_components'
-      }
-    }
+      baseDir: ['.tmp', 'app', 'dist'],
+    },
+    port: 9000,
+    ghostMode: {
+      click: false,
+      form: false,
+      location: false,
+      scroll: false
+    },
+    online: true
   });
 
   // watch for changes
@@ -108,29 +123,16 @@ gulp.task('serve', ['styles', 'fonts'], function () {
 
   gulp.watch('app/styles/**/*.scss', ['styles']);
   gulp.watch('app/fonts/**/*', ['fonts']);
-  gulp.watch('bower.json', ['wiredep', 'fonts']);
+
+  return rebundle();
 });
 
-gulp.task('test', ['clean'], function () {
-  browserSync({
-    notify: false,
-    port: 9001,
-    server: {
-      baseDir: ['dist-test', 'test'],
-      routes: {
-        '/bower_components': 'bower_components'
-      }
-    }
-  });
-
-  var browserified = transform(function(filename) {
-    var b = browserify(filename);
-    return b.bundle();
-  });
-
-  return gulp.src(['./test/spec/*.js'])
-    .pipe(browserified)
-    .pipe(gulp.dest('./dist-test'));
+gulp.task('test', [], function () {
+  mochify('./test/spec/*.spec.js', {
+    reporter : 'dot',
+    cover    : true,
+    phantomjs: './node_modules/.bin/phantomjs'
+  }).bundle();
 });
 
 // inject bower components

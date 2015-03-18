@@ -37,6 +37,8 @@ people {
   padding: 10px;
   box-sizing: border-box;
   height: $row-height;
+  margin-top: 30px;
+  margin-bottom: 10px;
 
   &.loading {
     > * {

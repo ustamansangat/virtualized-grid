@@ -1,9 +1,11 @@
 {
-  "name": "virtualized-grid",
-  "private": true,
-  "dependencies": {
-    "backbone": "~1.1.2",
-    "underscore.string": "~2.3.2",
-    "jquery": "~2.1.1"
-  }
+  "name"          : "virtualized-grid",
+  "version"       : "0.0.1",
+  "main"          : "lib/mixinVirtualizedContainerTrait.js",
+  "dependencies"  : {
+    "backbone"          : "~1.1.2",
+    "underscore.string" : "~2.3.2",
+    "jquery"            : "~2.1.1"
+  },
+  "ignore"        : ["app", "dist", "node_modules", "test", "*.yml", "*.map", ".html", "*.ico"]
 }
