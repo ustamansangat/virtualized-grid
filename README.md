@@ -7,7 +7,7 @@ A vritualized grid to handle a large number or rows - where some rows can have n
     $ gulp serve
 
 
-To run tests
+To run tests (Currently, >99% test coverage!)
 
     $ gulp test
 
@@ -15,7 +15,7 @@ And to watch for changes an re-test
 
     $ gult test --watch
 
-Similary, --cover flag will show coverage report.
+Similarly, --cover flag will show coverage report.
 
 
 If a browser window doesn't automatically open, visit http://localhost:9001/

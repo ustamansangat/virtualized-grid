@@ -172,23 +172,26 @@ describe('mixinVirtualizedContainerTrait', function () {
         expect(target.render).to.throw(/display.*block/i);
       });
 
-      it ('Debounced render option is honored', function (done){
-        Target.prototype.rowTemplate = _.constant('<div style="display:block; box-sizing:content-box; height: 10px;">Yo</div>');
-        target = new Target({
-          collection: new Backbone.Collection(),
-          el: $('<div style="overflow-y: scroll; height: 100px;"> </div>'),
-          RENDER_DELAY: 10
-        });
-        target.collection.add({});
-        target.collection.add({});
-        target.render();
-        setTimeout(function (){
+      describe('Debounced render', function (){
+        beforeEach(function (){
+          Target.prototype.rowTemplate = _.constant('<div style="display:block; box-sizing:content-box; height: 10px;">Yo</div>');
+          target = new Target({
+            collection: new Backbone.Collection(),
+            el: $('<div style="overflow-y: scroll; height: 100px;"> </div>'),
+            RENDER_DELAY: 100
+          });
+          target.collection.add({});
+          target.collection.add({});
+          target.render();
           expect(target.$('.item-row').size()).to.equal(0);
-        }, 0);
-        setTimeout(function (){
-          expect(target.$('.item-row').size()).to.equal(2);
-          done();
-        }, 11);
+        });
+        it ('respects RENDER_DELAY option', function (done){
+          expect(target.$('.item-row').size()).to.equal(0);
+          setTimeout(function (){
+            expect(target.$('.item-row').size()).to.equal(2);
+            done();
+          }, 101);
+        });
       });
     });
   });
