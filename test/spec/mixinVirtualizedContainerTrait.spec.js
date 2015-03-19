@@ -7,13 +7,13 @@ var Backbone = require('backbone');
 
 var chai = require('chai');
 var expect = chai.expect;
-var should = chai.should();
-
+var sinon = require('sinon');
+chai.use(require('sinon-chai'));
 
 describe('mixinVirtualizedContainerTrait', function () {
   var ROW = 40;
   var VIRTUAL_COUNT = 8;
-  var Target, target;
+  var Target, target, preExistingScrollListener;
 
   function visibleRows() {
     var scrollTop = target.$el.scrollTop();
@@ -69,6 +69,10 @@ describe('mixinVirtualizedContainerTrait', function () {
         rendersRows.apply(null, suite.expect);
       });
 
+      it('calls the original scroll listener too', function (){
+        expect(preExistingScrollListener).to.have.been.called;
+      });
+
       if (suites) {
         _.without(suites, suite).forEach(function (next) {
           setupSuite(next, null, _s.sprintf('then [case %2d]', _.indexOf(suites, next)) );
@@ -91,16 +95,6 @@ describe('mixinVirtualizedContainerTrait', function () {
           mixinVirtualizedContainerTrait(this, options);
         }
       });
-    });
-
-    it ('Throws if scroll event handler already exists', function (){
-      expect(function () {
-        new (Target.extend({
-              events: {
-                scroll: _.identity
-              }
-        }))();
-      }).to.throw(/scroll event/i);
     });
 
     it ('Throws if rowTemplate is not specified', function (){
@@ -198,7 +192,11 @@ describe('mixinVirtualizedContainerTrait', function () {
 
   describe('Runtime tests', function () {
     beforeEach(function (){
+      preExistingScrollListener = sinon.spy();
       Target = Backbone.View.extend ({
+          events: {
+            scroll: preExistingScrollListener
+          },
           initialize: function (options) {
             Backbone.View.prototype.initialize.apply(this, arguments);
             mixinVirtualizedContainerTrait(this, options);
