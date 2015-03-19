@@ -4,6 +4,7 @@
 var plugins = require('gulp-load-plugins')();
 var _ = require('underscore');
 var argv = require('yargs').argv;
+var brfs = require('brfs');
 var browserify = require('browserify');
 var browserSync = require('browser-sync');
 var gulp = require('gulp');
@@ -87,7 +88,9 @@ gulp.task('clean', require('del').bind(null, ['.tmp', 'dist', 'dist-test']));
 
 gulp.task('serve', ['styles', 'fonts'], function () {
 
-  var bundler = watchify(browserify('./app/scripts/main.js', watchify.args));
+  var bundler = watchify(
+    browserify('./app/scripts/main.js', _.extend({ transform: ["brfs"] } , watchify.args))
+  );
   bundler.on('update', rebundle);
 
   function rebundle() {
@@ -117,6 +120,7 @@ gulp.task('serve', ['styles', 'fonts'], function () {
   gulp.watch([
     'app/*.html',
     'app/images/**/*',
+    'app/scripts/*',
     '.tmp/fonts/**/*'
   ]).on('change', reload);
 
