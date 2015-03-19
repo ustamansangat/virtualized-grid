@@ -1,5 +1,25 @@
 {
-  "private": true,
+  "author": {
+    "name": "Ustaman Sangat",
+    "email": "tseringshrestha@ gmail.com"
+  },
+  "name": "virtualized-grid",
+  "keywords": [
+    "virtualized",
+    "paged",
+    "rows",
+    "backbone"
+  ],
+  "license": "MIT",
+  "version": "1.10.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ustamansangat/virtualized-grid"
+  },
+  "bugs": {
+    "url": "https://github.com/ustamansangat/virtualized-grid/issues"
+  },
+  "main": "./index",
   "engines": {
     "node": ">=0.10.0"
   },
