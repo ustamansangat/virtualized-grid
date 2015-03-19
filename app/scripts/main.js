@@ -68,3 +68,24 @@ $('.controls .change').click(function (){
     name : model.get('name') + '*'
   });
 });
+
+$('.controls .remove').click(function (){
+  var index = $('.controls input[type=range]').val();
+  var model = container.collection.at(index);
+  container.collection.remove(model);
+  $('.controls input[type=range]').attr('max', container.collection.size() - 1);
+  if ( index >= container.collection.size() ) {
+    $('.controls input[type=range]').val(container.collection.size() - 1);
+    $('output[name=index]').val(container.collection.size() - 1);
+  }
+});
+
+$('.controls .add').click(function (){
+  container.collection.add({
+    name: _.uniqueId('Random'),
+    address: _.uniqueId('Some Address')
+  });
+  $('.controls input[type=range]').attr('max', container.collection.size() - 1);
+    $('.controls input[type=range]').val(container.collection.size() - 1);
+    $('output[name=index]').val(container.collection.size() - 1);
+});
