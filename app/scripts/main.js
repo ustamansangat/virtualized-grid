@@ -54,3 +54,17 @@ _.times(100, function (index) {
 });
 
 container.render();
+
+$('.controls input[type=range]').change(function (){
+  $('output[name=index]').val($('.controls input[type=range]').val());
+});
+
+$('.controls .change').click(function (){
+  var model = container.collection.at($('.controls input[type=range]').val());
+  model.set(model.get('heading') ? {
+    height: (1 + _.random(20)) / 10 * model.get('height'),
+    heading: model.get('heading') + '*'
+  } : {
+    name : model.get('name') + '*'
+  });
+});
