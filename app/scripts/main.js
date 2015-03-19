@@ -17,10 +17,8 @@ var headerTemplate = _.template(fs.readFileSync(__dirname + '/header.html', 'utf
 
 var PeopleView = Backbone.View.extend({
 
-  rowTemplate: function (rowModel) {
-    return rowModel.get('heading') ?
-      headerTemplate(rowModel.toJSON()) :
-      rowTemplate(rowModel.toJSON());
+  rowEl: function (rowModel) {
+    return $(rowModel.get('heading') ? headerTemplate(rowModel.toJSON()) : rowTemplate(rowModel.toJSON()));
   },
 
   isIrregularRow: function (rowModel) {
