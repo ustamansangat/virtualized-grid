@@ -17,7 +17,7 @@ var headerTemplate = _.template(fs.readFileSync(__dirname + '/header.html', 'utf
 
 var PeopleView = Backbone.View.extend({
 
-  rowEl: function (rowModel) {
+  drawRow: function (rowModel) {
     return $(rowModel.get('heading') ? headerTemplate(rowModel.toJSON()) : rowTemplate(rowModel.toJSON()));
   },
 

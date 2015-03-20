@@ -133,7 +133,7 @@ gulp.task('serve', ['styles', 'fonts'], function () {
 gulp.task('test', [], function () {
   mochify('./test/spec/*.spec.js', _.extend({
     reporter  : 'dot',
-    phantomjs : './node_modules/.bin/phantomjs',
+    phantomjs : './node_modules/.bin/phantomjs'
   }, argv)).bundle();
 });
 

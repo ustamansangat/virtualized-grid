@@ -87,6 +87,16 @@ describe('mixinVirtualizedContainerTrait', function () {
     });
   }
 
+  beforeEach(function () {
+    $(_s.sprintf('<div class="ustaman" style="height: %dpx; overflow-y: auto; border: 1px solid red; width: 200px; margin: 30px;"></div>', ROW * VIRTUAL_COUNT)).prependTo('body');
+  });
+  afterEach(function (){
+    if(target) {
+      target.remove();
+    }
+    $('.ustaman').remove();
+  });
+
   describe('Dependencies', function () {
     beforeEach(function (){
       Target = Backbone.View.extend({
@@ -97,20 +107,22 @@ describe('mixinVirtualizedContainerTrait', function () {
       });
     });
 
-    it ('Throws if rowTemplate is not specified', function (){
+    it ('Throws if drawRow is not specified', function (){
       expect(function () {
         new Target({
-          collection: new Backbone.Collection()
+          collection: new Backbone.Collection(),
+          el        : $('.ustaman')
         });
-      }).to.throw(/rowTemplate/);
+      }).to.throw(/drawRow/);
     });
 
     it ('Throws if render is already overridden', function (){
       expect(function () {
         new (Target.extend({
-          rowTemplate: _.constant('yo'),
+          drawRow: _.constant($('<div>yo</div>')),
           render: _.identity()
         }))({
+          el        : $('.ustaman'),
           collection: new Backbone.Collection()
         });
       }).to.throw(/render/i);
@@ -119,16 +131,20 @@ describe('mixinVirtualizedContainerTrait', function () {
     describe('Proper Template class', function () {
 
       beforeEach(function (){
-        Target.prototype.rowTemplate = _.constant('yo');
+        Target.prototype.drawRow = function () {
+          return $('<div style="display:inline;">yo</div>');
+        };
       });
 
-      it ('Throws if a collection is not provided', function (){
+      it('Throws if a collection is not provided', function (){
         expect(function () {
-          new Target();
+          new Target({
+            el: $('.ustaman')
+          });
         }).to.throw(/backing collection/i);
       });
 
-      it ('Throws if an el is not specified', function (){
+      it('Throws if an el is not specified', function (){
         expect(function () {
           new Target({
             collection: new Backbone.Collection()
@@ -136,11 +152,11 @@ describe('mixinVirtualizedContainerTrait', function () {
         }).to.throw();
       });
 
-      it ('Throws if el does not support scrolling', function (){
+      it('Throws if el does not support scrolling', function (){
         expect(function () {
           new Target({
             collection: new Backbone.Collection(),
-            el: $('<div style="overflow-y: hidden;"> </div>')
+            el: $('.ustaman').css('overflow-y', 'hidden')
           });
         }).to.throw(/overflow.*scroll/i);
         expect(function () {
@@ -157,21 +173,23 @@ describe('mixinVirtualizedContainerTrait', function () {
         }).not.to.throw(/overflow.*scroll/i);
       });
 
-      it ('Throws if a row is incompatibly formatted', function (){
+      it('Throws if a row is incompatibly formatted', function (){
         target = new Target({
           collection: new Backbone.Collection(),
-          el: $('<div style="overflow-y: scroll; height: 100px;"> </div>')
+          el: $('.ustaman')
         });
         target.collection.add({});
         expect(target.render).to.throw(/display.*block/i);
       });
 
-      describe('Debounced render', function (){
-        beforeEach(function (){
-          Target.prototype.rowTemplate = _.constant('<div style="display:block; box-sizing:content-box; height: 10px;">Yo</div>');
+      describe ('Debounced render', function (){
+        beforeEach (function (){
+          Target.prototype.drawRow = function () {
+            return $('<div style="display:block; box-sizing:content-box; height: 10px;">Yo</div>');
+          };
           target = new Target({
             collection: new Backbone.Collection(),
-            el: $('<div style="overflow-y: scroll; height: 100px;"> </div>'),
+            el: $('.ustaman'),
             RENDER_DELAY: 100
           });
           target.collection.add({});
@@ -202,12 +220,6 @@ describe('mixinVirtualizedContainerTrait', function () {
             mixinVirtualizedContainerTrait(this, options);
           }
       });
-      $(_s.sprintf('<div class="ustaman" style="height: %dpx; overflow-y: auto; border: 1px solid red; width: 200px; margin: 30px;"></div>', ROW * VIRTUAL_COUNT)).prependTo('body');
-    });
-
-    afterEach(function (){
-      target.remove();
-      $('.ustaman').remove();
     });
 
     function createAndPopulate(Constructor) {
@@ -230,11 +242,11 @@ describe('mixinVirtualizedContainerTrait', function () {
 
       beforeEach(function (done){
         target = createAndPopulate(Target.extend({
-          rowTemplate: function (rowModel) {
+          drawRow: function (rowModel) {
             var row = rowModel.toJSON();
             var irregular = row.index === 32;
-            return _s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black; background-color:%s;"> %s </div>',
-             irregular ? (ROW * VIRTUAL_COUNT * 2) : ROW, irregular ? 'pink' : 'yellow', row.text);
+            return $(_s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black; background-color:%s;"> %s </div>',
+             irregular ? (ROW * VIRTUAL_COUNT * 2) : ROW, irregular ? 'pink' : 'yellow', row.text));
           },
           isIrregularRow: function (row) {
             return row.get('index') === 32;
@@ -273,18 +285,19 @@ describe('mixinVirtualizedContainerTrait', function () {
               recordedError = error;
               return false;
           };
-          var originalRowTemplate = target.rowTemplate;
-          target.rowTemplate = function (rowModel) {
+
+          target.drawRow = _.wrap(target.drawRow, function (drawRow, rowModel) {
             switch (rowModel.get('index')) {
               case 60:
-                return '<div style="height:6px;"/>';
+                return $('<div style="height:6px;"/>');
               case 70:
-                return _s.sprintf('<div style="display:inline-block;height:%dpx;"/>', ROW);
+                return $(_s.sprintf('<div style="display:inline-block;height:%dpx;"/>', ROW));
               default:
-                return originalRowTemplate(rowModel);
+                return drawRow(rowModel);
             }
-          };
+          });
         });
+
         afterEach(function () {
           window.onerror = originalListener;
         });
@@ -364,9 +377,9 @@ describe('mixinVirtualizedContainerTrait', function () {
 
       beforeEach(function (done){
         target = createAndPopulate(Target.extend({
-          rowTemplate: function (rowModel) {
+          drawRow: function (rowModel) {
             var row = rowModel.toJSON();
-            return _s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', ROW, row.text);
+            return $(_s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', ROW, row.text));
           },
           isIrregularRow: _.constant(true),
         }));
@@ -425,9 +438,9 @@ describe('mixinVirtualizedContainerTrait', function () {
       var visibleCount = Math.ceil((Math.sqrt(25 + 20 * ROW * VIRTUAL_COUNT) - 5 ) / 10);
       beforeEach(function (done){
         target = createAndPopulate(Target.extend({
-          rowTemplate: function (rowModel) {
+          drawRow: function (rowModel) {
             var row = rowModel.toJSON();
-            return _s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', (1 + row.index) * 10, row.text);
+            return $(_s.sprintf('<div style="display:block; box-sizing: border-box; height:%dpx; border: 1px solid black;"> %s </div>', (1 + row.index) * 10, row.text));
           },
           isIrregularRow: _.constant(true),
         }));
