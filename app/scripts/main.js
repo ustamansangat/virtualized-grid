@@ -37,7 +37,7 @@ var container = new PeopleView({
   el: $('people'),
   idProperty: 'name',
   collection: new Backbone.Collection(),
-  RENDER_DELAY: 50,
+  RENDER_DELAY: 100,
   MAX_CACHE_COUNT: Infinity
 });
 

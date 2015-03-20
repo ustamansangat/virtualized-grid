@@ -108,5 +108,12 @@ people {
 
 prefix, suffix {
   background-color: #7e7e7e;
-  background-image:url('https://www.google.com/a/lab49.com/images/logo.gif);
+  background-image: url(/loading.gif);
+  background-repeat: repeat-y;
+}
+prefix {
+  background-position: center bottom;
+}
+suffix {
+  background-position: center top;
 }
