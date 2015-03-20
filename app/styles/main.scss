@@ -1,5 +1,14 @@
-// bower:scss
-// endbower
+::-webkit-scrollbar {
+//  -webkit-appearance: none;
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background-color: rgba(0,0,0,.5);
+}
+::-webkit-scrollbar-track {
+    background: pink;
+}
 
 body {
   background: #fafafa;
@@ -11,7 +20,7 @@ $row-height: 50px;
 
 ruler {
   position: absolute;
-  left: 120px;
+  left: 160px;
   top: 0;
   line {
     height: $row-height;
@@ -44,13 +53,12 @@ ruler {
 }
 
 people {
-  border: 2px solid red;
+  border: 1px solid green;
   display: block;
-  width: 200px;
+  width: 220px;
   height: $row-height * 8;
-  overflow-y: auto;
+  overflow-y: scroll;
 }
-
 
 .item-row {
   display: block;
@@ -108,7 +116,7 @@ people {
 
 prefix, suffix {
   background-color: #7e7e7e;
-  background-image: url(/loading.gif);
+  background-image: url(../images/loading.gif);
   background-repeat: repeat-y;
 }
 prefix {

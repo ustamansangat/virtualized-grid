@@ -86,6 +86,13 @@ $('.controls .add').click(function (){
     address: _.uniqueId('Some Address')
   });
   $('.controls input[type=range]').attr('max', container.collection.size() - 1);
-    $('.controls input[type=range]').val(container.collection.size() - 1);
-    $('output[name=index]').val(container.collection.size() - 1);
+  $('.controls input[type=range]').val(container.collection.size() - 1);
+  $('output[name=index]').val(container.collection.size() - 1);
+});
+
+$('.controls .reset').click(function (){
+  container.collection.reset();
+  $('.controls input[type=range]').attr('max', container.collection.size() - 1);
+  $('.controls input[type=range]').val(container.collection.size() - 1);
+  $('output[name=index]').val(container.collection.size() - 1);
 });
